@@ -582,7 +582,7 @@ with st.container(border=True):
         )
     
     with input_col:
-if source_option == "구글 스프레드시트(2026실시간)":
+    if source_option == "구글 스프레드시트(2026실시간)":
             spreadsheet_url = st.text_input(
                 "🔗 구글 스프레드시트 URL:",
                 value=DEFAULT_GSHEETS_URL if DEFAULT_GSHEETS_URL != "여기에_사용하실_구글스프레드시트_링크를_넣어주세요" else "",
@@ -1569,6 +1569,7 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
+
 
 
 
