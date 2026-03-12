@@ -832,53 +832,14 @@ with st.container(border=True):
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 연인원", f"{총연인원:,.0f} 명")
     # 사용자가 제시한 648/774 목표값에 맞추기 위해 엑셀 수동 방식(Raw)을 기본으로 표시
-    col2.metric("총 실인원", f"{총실인원_raw:,.0f} 명")
-    col3.metric("중복 실인원", f"{중복실인원_raw:,.0f} 명")
+    col2.metric("총 실인원", f"{총실인원:,.0f} 명")
+    col3.metric("중복 실인원", f"{중복실인원:,.0f} 명")
     if biz_days > 0:
         col4.metric("일평균 이용자", f"{일평균이용자:,.1f} 명")
     else:
         col4.metric("일평균 이용자", "-")
 
-# 디버그 정보 (중복실인원 진단용 - 이슈 해결 후 삭제)
-with st.expander("🔍 [개발자 정보] 실인원 비교 진단", expanded=False):
-    st.write(f"**① 현재 필터 지정 데이터 행수(단위=명/건):** `{len(df_person)}행` (연인원 계산 전 원본 행 수)")
-    st.write(f"**② 앱 계산 방식 (이름/날짜 공백 및 표기 오류 자동 교정):** 실인원 `{총실인원}명` / 중복실인원 `{중복실인원}명` (자동으로 동명이인과 오타를 정리한 가장 정확한 숫자)")
-    st.write(f"**③ 엑셀 수동 방식 (오타 방치):** 실인원 `{총실인원_raw}명` / 중복실인원 `{중복실인원_raw}명` (엑셀의 '중복된 항목 제거'와 100% 동일하게 계산한 숫자)")
-    
-    # [디버그용 임시 파일 저장] - 백그라운드에서 전체 데이터 상태 확인용
-    import os
-    try:
-        debug_dir = os.path.join(os.getcwd(), "debug_output")
-        os.makedirs(debug_dir, exist_ok=True)
-        valid_unique_df.to_csv(os.path.join(debug_dir, "valid_unique_debug.csv"), index=False, encoding='utf-8-sig')
-        df.to_csv(os.path.join(debug_dir, "raw_df_debug.csv"), index=False, encoding='utf-8-sig')
-    except Exception as e:
-        st.write(f"Debug save error: {e}")
 
-    # 팀이름 분포 확인
-    if actual_team_col and actual_team_col in valid_unique_df.columns:
-        team_dist = valid_unique_df[actual_team_col].value_counts()
-        st.write(f"**⑤ 팀이름 분포 (행 기준):**")
-        st.dataframe(team_dist.reset_index().rename(columns={actual_team_col: '팀이름', 'count': '행수'}), height=200)
-    
-    # 여러 팀에 걸쳐 나온 이용자 확인
-    if actual_team_col and actual_team_col in valid_unique_df.columns:
-        # 팀 개수 계산
-        team_counts = valid_unique_df.groupby('고유ID')[actual_team_col].nunique()
-        multi_team_ids = team_counts[team_counts > 1].index
-        
-        # 이름과 엮인 팀 목록 추출
-        if len(multi_team_ids) > 0:
-            multi_team_df = valid_unique_df[valid_unique_df['고유ID'].isin(multi_team_ids)]
-            # 팀 이름을 쉼표로 연결
-            team_names = multi_team_df.groupby('고유ID')[actual_team_col].unique().apply(lambda x: ', '.join(map(str, x)))
-            team_names.name = '팀이름(목록)'
-            
-            st.write(f"**⑥ 여러 팀을 이용한 이용자 수:** `{len(multi_team_ids)}명` (이 숫자가 0이면 데이터상 중복없음)")
-            st.write("샘플 (여러 팀 참여 이력):")
-            st.dataframe(team_names.reset_index().head(5), height=200)
-        else:
-            st.write(f"**⑥ 여러 팀을 이용한 이용자 수:** `0명` (데이터상 중복없음)")
 
     # 이준승 샘플 조회
     name_col_check = col_map.get('이름', '이름')
@@ -1606,3 +1567,4 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
+
