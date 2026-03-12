@@ -582,7 +582,7 @@ with st.container(border=True):
         )
     
     with input_col:
-        if source_option == "구글 스프레드시트(2026실시간)":
+if source_option == "구글 스프레드시트(2026실시간)":
             spreadsheet_url = st.text_input(
                 "🔗 구글 스프레드시트 URL:",
                 value=DEFAULT_GSHEETS_URL if DEFAULT_GSHEETS_URL != "여기에_사용하실_구글스프레드시트_링크를_넣어주세요" else "",
@@ -590,10 +590,12 @@ with st.container(border=True):
                 label_visibility="collapsed"
             )
             data_source = spreadsheet_url
-            if not spreadsheet_url:
-                st.warning("⚠️ 코드 내 DEFAULT_GSHEETS_URL에 주소를 고정해두거나, 텍스트 상자에 직접 입력해 주세요.")
-                st.stop() # URL이 없을 때만 중단
+            # 구글 시트 모드인데 주소가 없을 때만 멈추도록 수정
+            if not data_source:
+                st.warning("⚠️ 구글 스프레드시트 URL을 입력해 주세요.")
+                st.stop()
         else:
+            # 엑셀 모드일 때는 주소 검사 없이 바로 여기로 넘어옵니다
             uploaded_file = st.file_uploader("📂 엑셀 파일 업로드 (.xlsx)", type=['xlsx'], label_visibility="collapsed")
             if uploaded_file is not None:
                 data_source = uploaded_file
@@ -1567,6 +1569,7 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
+
 
 
 
