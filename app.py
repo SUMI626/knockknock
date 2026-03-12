@@ -576,13 +576,13 @@ with st.container(border=True):
     with source_col:
         source_option = st.radio(
             "분석할 데이터를 선택해 주세요:",
-            ["구글 스프레드시트 (실시간)", "로컬 엑셀 파일"],
+            ["구글 스프레드시트(2026)", "엑셀 파일"],
             index=0, # 구글 스프레드시트가 기본 선택되도록 변경
             label_visibility="collapsed"
         )
     
     with input_col:
-        if source_option == "구글 스프레드시트 (실시간)":
+        if source_option == "구글 스프레드시트(2026)":
             spreadsheet_url = st.text_input(
                 "🔗 구글 스프레드시트 URL:",
                 value=DEFAULT_GSHEETS_URL if DEFAULT_GSHEETS_URL != "여기에_사용하실_구글스프레드시트_링크를_넣어주세요" else "",
@@ -602,7 +602,7 @@ with st.container(border=True):
                 st.info("ℹ️ 별도의 업로드 파일이 없을 경우 '2025실적데이터.xlsx'를 기본으로 분석합니다.")
 
 with st.spinner("데이터를 불러오고 처리하는 중입니다..."):
-    if source_option == "로컬 엑셀 파일":
+    if source_option == "엑셀 파일":
         df, col_map = load_data_excel(data_source)
     else:
         # URL 형식 검증
@@ -1567,6 +1567,7 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
+
 
 
 
