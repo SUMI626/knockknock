@@ -599,7 +599,7 @@ with st.container(border=True):
                 data_source = uploaded_file
             else:
                 data_source = "2025실적데이터.xlsx"
-                st.info("ℹ️ 업로드된 파일이 없어 '2025실적데이터.xlsx'를 기본으로 사용합니다.")
+                st.info("ℹ️ 별도의 업로드 파일이 없을 경우 '2025실적데이터.xlsx'를 기본으로 분석합니다.")
 
 with st.spinner("데이터를 불러오고 처리하는 중입니다..."):
     if source_option == "로컬 엑셀 파일":
@@ -1567,4 +1567,5 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
+
 
