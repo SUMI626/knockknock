@@ -1,5 +1,6 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
+import gspread
+from google.oauth2.service_account import Credentials
 import pandas as pd
 import re
 import plotly.express as px
@@ -93,11 +94,19 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     font-size: 18px;
 }}
 /* 탭 선택 색상 차별화 - 변수 대신 헥사코드 직접 사용 (f-string 오류 방지) */
-.stTabs [data-baseweb="tab"]:nth-child(1)[aria-selected="true"] {{
+/* 내부 p, span 태그에도 글자색을 강제 적용하여 전역 색상에 덮어씌워지는 현상 방지 */
+.stTabs [data-baseweb="tab"]:nth-child(1)[aria-selected="true"],
+.stTabs [data-baseweb="tab"]:nth-child(1)[aria-selected="true"] p,
+.stTabs [data-baseweb="tab"]:nth-child(1)[aria-selected="true"] span,
+.stTabs [data-baseweb="tab"]:nth-child(1)[aria-selected="true"] div {{
     background-color: #136698 !important;
     color: white !important;
 }}
-.stTabs [data-baseweb="tab"]:nth-child(2)[aria-selected="true"] {{
+
+.stTabs [data-baseweb="tab"]:nth-child(2)[aria-selected="true"],
+.stTabs [data-baseweb="tab"]:nth-child(2)[aria-selected="true"] p,
+.stTabs [data-baseweb="tab"]:nth-child(2)[aria-selected="true"] span,
+.stTabs [data-baseweb="tab"]:nth-child(2)[aria-selected="true"] div {{
     background-color: #BE1E2D !important;
     color: white !important;
 }}
@@ -118,18 +127,37 @@ def load_data_excel(file_path):
         return pd.DataFrame(), str(e)
 
 def load_data_gsheets(spreadsheet_url):
+    """gspread를 직접 사용하여 구글 스프레드시트 데이터를 로드합니다."""
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        ws_name = "취합_자동"
+        # secrets.toml에서 서비스 계정 정보 읽기
+        _raw = dict(st.secrets["connections"]["gsheets"])
+        _sa_keys = {
+            "type", "project_id", "private_key_id", "private_key",
+            "client_email", "client_id", "auth_uri", "token_uri",
+            "auth_provider_x509_cert_url", "client_x509_cert_url",
+        }
+        creds_info = {k: v for k, v in _raw.items() if k in _sa_keys}
+        creds_info.setdefault("type", "service_account")
+        
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
+        client = gspread.authorize(creds)
+        
+        spreadsheet = client.open_by_url(spreadsheet_url)
+        
+        # '취합_자동' 시트 먼저 시도
         try:
-            # 한글 시트명으로 시도
-            df = conn.read(spreadsheet=spreadsheet_url, worksheet=ws_name, ttl=10)
-        except Exception:
-            # 실패 시 첫 번째 시트(index 0)로 시도
-            df = conn.read(spreadsheet=spreadsheet_url, index=0, ttl=10)
+            ws = spreadsheet.worksheet("취합_자동")
+        except gspread.exceptions.WorksheetNotFound:
+            ws = spreadsheet.get_worksheet(0)
+        
+        records = ws.get_all_records()
+        df = pd.DataFrame(records)
         return clean_and_map_data(df)
     except Exception as e:
-        # repr(e)를 사용하여 인코딩 문제 없이 에러 메시지 출력
         return pd.DataFrame(), f"GSheets Connection Error: {repr(e)}"
 
 def clean_and_map_data(df):
@@ -566,52 +594,38 @@ def draw_age_charts(df_data, title_suffix):
 st.title("📊 이용자 현황 분석 대시보드")
 
 # ================= 데이터 소스 설정 (메인 화면) =================
-# 여기에 사용할 구글 스프레드시트 주소를 고정으로 입력하세요.
-DEFAULT_GSHEETS_URL = "https://docs.google.com/spreadsheets/d/1T8QB5fQaTLzEYlV5mgphGd-n8pMGHdJzq4OZo-HeJoI/edit"
+DEFAULT_GSHEETS_URL = "https://docs.google.com/spreadsheets/d/1EZ1wmywG0i5Plv1Rxppatyn-mlNwp_uPKIFzdm-TY9c/edit?gid=0#gid=0"
 
 with st.container(border=True):
     st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:10px;'>🛠️ 데이터 소스 설정</div>", unsafe_allow_html=True)
     source_col, input_col = st.columns([1, 2])
-    
+
     with source_col:
         source_option = st.radio(
             "분석할 데이터를 선택해 주세요:",
             ["구글 스프레드시트(2026실시간)", "엑셀(2025최종/업로드)"],
-            index=0, # 구글 스프레드시트가 기본 선택되도록 변경
+            index=0,
             label_visibility="collapsed"
         )
-    
-with input_col:
-            if source_option == "구글 스프레드시트(2026실시간)":
-                spreadsheet_url = st.text_input(
-                    "🔗 구글 스프레드시트 URL:",
-                    value=DEFAULT_GSHEETS_URL if DEFAULT_GSHEETS_URL != "여기에_사용하실_구글스프레드시트_링크를_넣어주세요" else "",
-                    placeholder="https://docs.google.com/spreadsheets/d/...",
-                    label_visibility="collapsed"
-                )
-                data_source = spreadsheet_url
-                # 구글 시트 모드인데 주소가 없을 때만 멈추도록 수정
-                if not data_source:
-                    st.warning("⚠️ 구글 스프레드시트 URL을 입력해 주세요.")
-                    st.stop()
+
+    with input_col:
+        if source_option == "구글 스프레드시트(2026실시간)":
+            # [출품용] URL 입력칸 숨김 - 고정 URL 자동 사용 (안내 문구도 숨김)
+            spreadsheet_url = DEFAULT_GSHEETS_URL
+            data_source = spreadsheet_url
+        else:
+            uploaded_file = st.file_uploader("📂 엑셀 파일 업로드 (.xlsx)", type=['xlsx'], label_visibility="collapsed")
+            if uploaded_file is not None:
+                data_source = uploaded_file
             else:
-                # 엑셀 모드일 때는 주소 검사 없이 바로 여기로 넘어옵니다
-                uploaded_file = st.file_uploader("📂 엑셀 파일 업로드 (.xlsx)", type=['xlsx'], label_visibility="collapsed")
-                if uploaded_file is not None:
-                    data_source = uploaded_file
-                else:
-                    data_source = "2025실적데이터.xlsx"
-                    st.info("ℹ️ 별도의 업로드 파일이 없을 경우 '2025실적데이터.xlsx'를 기본으로 분석합니다.")
+                data_source = "2025실적데이터.xlsx"
+                st.info("ℹ️ 업로드된 파일이 없어 '2025실적데이터.xlsx'를 기본으로 사용합니다.")
 
 with st.spinner("데이터를 불러오고 처리하는 중입니다..."):
     if source_option == "엑셀(2025최종/업로드)":
         df, col_map = load_data_excel(data_source)
     else:
-        # URL 형식 검증
-        if "docs.google.com/sheets" not in str(data_source) and "docs.google.com/spreadsheets" not in str(data_source):
-            df, col_map = pd.DataFrame(), "올바른 구글 스프레드시트 URL 형식이 아닙니다."
-        else:
-            df, col_map = load_data_gsheets(data_source)
+        df, col_map = load_data_gsheets(data_source)
 
 # 데이터 로딩 오류 처리
 if isinstance(col_map, str) or df.empty:
@@ -738,10 +752,10 @@ elif '단위' in filtered_df.columns:
     actual_unit_col = '단위'
 
 # ================================================================
-# 지표별 데이터 소스 분리 및 정의된 로직으로 계산
+# 지표별 집계 방식 (데이터 소스 분리 적용)
 # ================================================================
 
-# 1. 연인원: 단위가 '명'인 행의 실적 합계 ('기타' 포함 모든 횟수)
+# --- 공통 전처리: '명' 단위 행 추출 ---
 if actual_unit_col:
     cleaned_unit = filtered_df[actual_unit_col].astype(str).str.strip()
     is_person = (cleaned_unit == '명') | (cleaned_unit == '명(실인원)')
@@ -749,59 +763,117 @@ if actual_unit_col:
 else:
     df_person = filtered_df.copy()
 
-if performance_col in df_person.columns:
-    df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
-    총연인원 = df_person[performance_col].sum()
+# ================= 엑셀 전용 집계 로직 =================
+if source_option == "엑셀(2025최종/업로드)":
+    # 1. 연인원: 이름이 '기타'인 사람도 포함하여 단위='명'인 행의 실적 전부 합산
+    if performance_col in df_person.columns:
+        df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
+        총연인원 = df_person[performance_col].sum()
+    else:
+        총연인원 = len(df_person)
+
+    # 2. 실인원 처리를 위해 '기타' 제외
+    if name_col in df_person.columns:
+        is_etc = df_person[name_col].astype(str).str.contains('기타', na=False)
+        valid_unique_df = df_person[~is_etc].copy()
+    else:
+        valid_unique_df = df_person.copy()
+
+    # 중복 제거 기준 칼럼 식별 (이름, 생년월일, 장애유형, 장애정도, 팀)
+    col_birth_excel = '생년월일' if '생년월일' in valid_unique_df.columns else None
+    col_dtype_excel = '장애유형' if '장애유형' in valid_unique_df.columns else col_map.get('장애유형')
+    col_ddeg_excel = '장애정도' if '장애정도' in valid_unique_df.columns else None
+    
+    actual_team_col = team_col
+    if actual_team_col not in valid_unique_df.columns:
+        for c in valid_unique_df.columns:
+            if '팀' in str(c) or '부서' in str(c) or 'team' in str(c).lower():
+                actual_team_col = c
+                break
+
+    # 3. 실인원: 4개 항목 기준 중복 제거 후 남은 행의 개수
+    unique_cols_4 = [c for c in [name_col, col_birth_excel, col_dtype_excel, col_ddeg_excel] if c and c in valid_unique_df.columns]
+    if unique_cols_4:
+        총실인원_raw = len(valid_unique_df[unique_cols_4].drop_duplicates())
+        총실인원 = 총실인원_raw
+    else:
+        총실인원_raw = len(valid_unique_df)
+        총실인원 = 총실인원_raw
+
+    # 4. 중복실인원: 5개 항목(팀 추가) 기준 중복 제거 후 남은 행의 개수
+    unique_cols_5 = [c for c in [name_col, col_birth_excel, col_dtype_excel, col_ddeg_excel, actual_team_col] if c and c in valid_unique_df.columns]
+    if unique_cols_5:
+        중복실인원_raw = len(valid_unique_df[unique_cols_5].drop_duplicates())
+        중복실인원 = 중복실인원_raw
+    else:
+        중복실인원_raw = 총실인원_raw
+        중복실인원 = 총실인원
+
+# ================= 구글 시트 (기존) 집계 로직 =================
 else:
-    총연인원 = len(df_person)
+    if performance_col in df_person.columns:
+        df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
+        총연인원 = df_person[performance_col].sum()
+    else:
+        총연인원 = len(df_person)
 
-# 2. 실인원 & 중복실인원용 데이터 정제 (이름에 '기타' 포함된 행 제외)
-if name_col in df_person.columns:
-    # 이름에 '기타'가 포함된 행은 실인원/중복실인원 계산에서 원천 배제
-    is_etc = df_person[name_col].astype(str).str.contains('기타', na=False)
-    valid_unique_df = df_person[~is_etc].copy()
-else:
-    valid_unique_df = df_person.copy()
+    if name_col in df_person.columns:
+        is_etc = df_person[name_col].astype(str).str.contains('기타', na=False)
+        valid_unique_df = df_person[~is_etc].copy()
+    else:
+        valid_unique_df = df_person.copy()
 
-# 고유ID(이름+생년+유형+정도)가 유효한 데이터만 남김
-valid_unique_df = valid_unique_df.loc[
-    valid_unique_df['고유ID'].notna() & 
-    (valid_unique_df['고유ID'].astype(str).str.strip() != '') &
-    (valid_unique_df['고유ID'].astype(str).str.strip() != 'nan')
-].copy()
+    valid_unique_df = valid_unique_df.loc[
+        valid_unique_df['고유ID'].notna() & 
+        (valid_unique_df['고유ID'].astype(str).str.strip() != '') &
+        (valid_unique_df['고유ID'].astype(str).str.strip() != 'nan')
+    ].copy()
 
-# 실인원 계산: 고유ID 기준 중복 제거 (수미 님 정의: 1명)
-총실인원 = valid_unique_df['고유ID'].nunique()
+    총실인원 = valid_unique_df['고유ID'].nunique()
+    총실인원_raw = valid_unique_df['raw_고유ID'].nunique()
 
-# 3. 중복실인원 계산: 고유ID + 팀이름 기준 중복 제거 (수미 님 정의: 이용 팀 수)
-actual_team_col = team_col
-if actual_team_col not in valid_unique_df.columns:
-    for c in valid_unique_df.columns:
-        if any(keyword in str(c) for keyword in ['팀', '부서', 'team']):
-            actual_team_col = c
-            break
+    actual_team_col = team_col
+    if actual_team_col not in valid_unique_df.columns:
+        for c in valid_unique_df.columns:
+            if '팀' in str(c) or '부서' in str(c) or 'team' in str(c).lower():
+                actual_team_col = c
+                break
 
-if actual_team_col in valid_unique_df.columns:
-    # 고유ID와 팀이름의 유니크한 조합 개수를 카운트
-    중복실인원 = len(valid_unique_df[['고유ID', actual_team_col]].drop_duplicates())
-else:
-    중복실인원 = 총실인원
+    if actual_team_col in valid_unique_df.columns:
+        중복실인원 = len(valid_unique_df[['고유ID', actual_team_col]].drop_duplicates())
+        중복실인원_raw = len(valid_unique_df[['raw_고유ID', actual_team_col]].drop_duplicates())
+    else:
+        중복실인원 = 총실인원
+        중복실인원_raw = 총실인원_raw
+        actual_team_col = f"[ERROR] '팀' 콜럼을 찾을 수 없음."
 
-# 4. 운영일수 및 일평균 이용자 계산
+# 4. 일평균 이용자: 연인원 / 운영 일수 (주말 및 법정공휴일 제외)
 def get_biz_days(parsed_dates):
     if len(parsed_dates) == 0: return 0
     start_date = parsed_dates.min().date()
     end_date = parsed_dates.max().date()
+    
+    # 한국 법정공휴일 (2025-2026)
     holidays = [
+        # 2025
         "2025-01-01", "2025-01-28", "2025-01-29", "2025-01-30", "2025-03-01", "2025-03-03", 
         "2025-05-05", "2025-05-06", "2025-06-06", "2025-08-15", "2025-10-03", "2025-10-05", 
         "2025-10-06", "2025-10-07", "2025-10-08", "2025-10-09", "2025-12-25",
+        # 2026
+        "2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-03-01", "2026-03-02",
+        "2025-05-05", "2025-05-06", "2025-06-06", "2025-08-15", "2025-10-03", "2025-10-05", 
+        "2025-10-06", "2025-10-07", "2025-10-08", "2025-10-09", "2025-12-25",
+        # 2026
         "2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-03-01", "2026-03-02",
         "2026-05-05", "2026-05-24", "2026-05-25", "2026-06-06", "2026-08-15", "2026-08-17",
-        "2026-09-24", "2026-09-25", "2026-09-26", "2026-10-03", "2026-10-05", "2026-10-09", "2026-12-25"
+        "2026-09-24", "2026-09-25", "2026-09-26", "2026-10-03", "2026-10-05", "2026-10-09",
+        "2026-12-25"
     ]
     holiday_set = set(pd.to_datetime(holidays).date)
+    
+    # 선택된 범위 내의 모든 날짜 생성
     all_dates = pd.date_range(start=start_date, end=end_date).date
+    # 주말(5,6) 및 공휴일 제외
     biz_list = [d for d in all_dates if d.weekday() < 5 and d not in holiday_set]
     return len(biz_list)
 
@@ -813,35 +885,23 @@ else:
 
 일평균이용자 = 총연인원 / biz_days if biz_days > 0 else 0
 
-# --- 화면 출력부 ---
 st.markdown(f"<h3 style='color: {BRAND_GRAY}; border-left: 5px solid {BRAND_RED}; padding-left: 10px; margin-bottom: 20px;'>📈 주요 실적 요약</h3>", unsafe_allow_html=True)
 with st.container(border=True):
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("총 연인원", f"{총연인원:,.0f} 명")
-    col2.metric("총 실인원", f"{총실인원:,.0f} 명")
-    col3.metric("중복 실인원", f"{중복실인원:,.0f} 명")
+    # 사용자가 제시한 648/774 목표값에 맞추기 위해 엑셀 수동 방식(Raw)을 기본으로 표시
+    col2.metric("총 실인원", f"{총실인원_raw:,.0f} 명")
+    col3.metric("중복 실인원", f"{중복실인원_raw:,.0f} 명")
     if biz_days > 0:
         col4.metric("일평균 이용자", f"{일평균이용자:,.1f} 명")
     else:
         col4.metric("일평균 이용자", "-")
 
+# [출품용] 개발자 정보 디버그 패널 숨김
 
 
-    # 이준승 샘플 조회
-    name_col_check = col_map.get('이름', '이름')
-    if name_col_check in valid_unique_df.columns:
-        sample = valid_unique_df[valid_unique_df[name_col_check].astype(str).str.contains('이준승', na=False)]
-        if not sample.empty:
-            show_cols = ['고유ID', name_col_check, actual_team_col] if actual_team_col else ['고유ID', name_col_check]
-            st.write("**⑦ 이준승 데이터 샘플 (valid_unique_df 내):**")
-            st.dataframe(sample[show_cols].head(10))
-            
-        raw_sample = df[df[name_col_check].astype(str).str.contains('이준승', na=False)]
-        if not raw_sample.empty:
-            st.write("**⑧ 이준승 데이터 샘플 (원본 raw df 내):**")
-            # 주요 컬럼만 출력
-            cols_to_show = [c for c in ['팀이름', name_col_check, '단위', '명/건', '생년월일', '장애유형', '장애정도'] if c in raw_sample.columns]
-            st.dataframe(raw_sample[cols_to_show].head(10))
+
+
 
 # ================= 연인원 전용 차트 함수 =================
 
@@ -1553,16 +1613,3 @@ with tab2:
             
     else:
         st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
-
-
-
-
-
-
-
-
-
-
-
-
-
