@@ -1684,11 +1684,19 @@ def draw_new_user_analysis(df_data, col_map):
         with col2:
             st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#555; margin-bottom:5px;'>🎯 신규 이용자의 타 프로그램 이용 (Top 10)</div>", unsafe_allow_html=True)
             if not top10_others.empty:
+                n = len(top10_others)
                 fig2 = px.bar(top10_others, x='이용건수', y=project_col, orientation='h', text='이용건수')
-                fig2.update_traces(marker_color=BRAND_RED, texttemplate='<b>%{text:,.0f}건</b>', textposition='inside')
+                
+                # 하위 순위(파일관리 포함)은 텍스트를 바깥으로 위치
+                # top10_others는 오름차순(ascending=True) 상태이므로 맨 마지막(n-1)이 1위
+                text_pos = ['inside' if (n - i) <= 4 else 'outside' for i in range(n)]
+                
+                fig2.update_traces(marker_color=BRAND_RED, texttemplate='<b>%{text:,.0f}건</b>', textposition=text_pos)
                 fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, yaxis_title="", xaxis_title="")
                 fig2 = apply_chart_style(fig2)
-                fig2.update_layout(height=400, margin=dict(t=10, b=20, l=220, r=20))
+                
+                # outside 텍스트가 화면 우측에서 잘리지 않도록 r 여백을 80으로 확보
+                fig2.update_layout(height=400, margin=dict(t=10, b=20, l=220, r=80))
                 st.plotly_chart(fig2, use_container_width=True)
             else:
                 st.info("타 프로그램 이용 내역이 없습니다.")
