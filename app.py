@@ -1498,7 +1498,6 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
             with col_filter_a:
                 with st.popover("연령대 선택", use_container_width=True):
                     sel_ages = checkbox_group("연령대 선택", available_ages, "cross_a", is_sidebar=False, default_all=True)
-            st.write("")
 
         if not sel_disabilities or not sel_ages:
             if not presentation_mode:
@@ -1561,14 +1560,14 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
         if not presentation_mode:
             st.markdown(f"### {chart_title}")
 
-        filter_caption = (
-            f"선택된 조건: **{_get_filter_text(sel_disabilities, available_disabilities)}** | "
-            f"**{_get_filter_text(sel_ages, available_ages)}**  |  합계: **{total_perf_val:,.0f}명**"
-        )
+        d_text = ', '.join(sel_disabilities) if sel_disabilities else '-'
+        a_text = '전체선택' if len(sel_ages) == len(available_ages) else ', '.join(sel_ages)
+        filter_caption_text = f"장애유형: {d_text} │ 연령대: {a_text} │ 합계: {total_perf_val:,.0f}명"
+
         if presentation_mode:
-            st.markdown(f"<div style='font-size:13px; color:#555; margin-bottom:4px;'>{filter_caption}</div>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:20px; font-weight:600; color:#333; margin:4px 0 8px 0;'>{filter_caption_text}</p>", unsafe_allow_html=True)
         else:
-            st.caption(filter_caption)
+            st.caption(filter_caption_text)
 
         # ── 도넛 그래프 ──
         fig = px.pie(
