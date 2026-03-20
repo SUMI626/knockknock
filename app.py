@@ -1863,8 +1863,8 @@ if st.session_state.get("presentation_mode", False):
                         _dname_color = BRAND_RED if dt not in ['비장애', '미등록'] else BRAND_BLUE
                         st.markdown(
                             f"<div style='font-size:24px;font-weight:bold;color:{BRAND_GRAY}'>"
-                            f"<span style='color:{_dname_color}'>{dt}</span> 선호 프로그램 (연인원 기준) "
-                            f"<span style='font-size:16px;color:#888'>*중식제공 제외</span></div>",
+                            f"<span style='color:{_dname_color} !important;'>{dt}</span> 선호 프로그램 (연인원 기준) "
+                            f"<span style='font-size:16px;color:#888 !important;'>*중식제공 제외</span></div>",
                             unsafe_allow_html=True
                         )
                         fig_p = px.pie(stats, names=_proj_col, values=_perf_col, hole=0.48,
