@@ -1183,7 +1183,7 @@ def draw_etc_top10_yeon(df_yeon, col_map):
         
         if not etc_stats.empty:
             # --- 시각화 전용 로직: 영역 비중 조절 (중식제공 50% 고정) ---
-            others_mask = ~etc_stats[project_col].astype(str).str.contains('중식제공', na=False)
+            others_mask = ~etc_stats[project_col].astype(str).str.contains('중식', na=False)
             others_sum = etc_stats.loc[others_mask, '실적'].sum()
             
             etc_stats['visual_weight'] = etc_stats['실적'].copy()
@@ -1260,7 +1260,7 @@ def draw_preferred_bar_disability(df_yeon, col_map):
 
             # 3. 데이터 필터링 및 전처리
             df_filtered = df_yeon[df_yeon[group_col].isin(actual_selection)].copy()
-            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식제공', na=False)]
+            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식', na=False)]
             
             stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
             
@@ -1366,7 +1366,7 @@ def draw_preferred_bar_age(df_yeon, col_map):
 
             # 3. 데이터 필터링 및 전처리
             df_filtered = df_yeon[df_yeon[group_col].isin(actual_selection)].copy()
-            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식제공', na=False)]
+            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식', na=False)]
             
             stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
             
@@ -1826,6 +1826,9 @@ if st.session_state.get("presentation_mode", False):
     def _slide_team_sil():
         draw_team_duplicated_sil(_df_for_uniq, col_map)
 
+    def _slide_cross():
+        draw_cross_analysis(df_yeon, col_map)
+
     # 동적 슬라이드: 장애유형별 선호 프로그램 (도넛)
     DYNAMIC_PREF_SLIDES = []
     disability_col_pres = col_map.get('장애유형', '장애유형')
@@ -1901,6 +1904,7 @@ if st.session_state.get("presentation_mode", False):
     SLIDES = [
         ("장애유형별 이용 현황 (연인원)",         _slide_disability_yeon),
     ] + DYNAMIC_PREF_SLIDES + [
+        ("장애유형 X 연령대별 선호 프로그램",     _slide_cross),
         ("연령대별 현황 – 장애/미등록 (연인원)",   _slide_age_disabled),
         ("연령대별 현황 – 비장애 (연인원)",        _slide_age_nondisabled),
         ("월별 이용자 추이",                       _slide_monthly),
