@@ -1891,7 +1891,12 @@ if st.session_state.get("presentation_mode", False):
                     total_p = stats[_perf_col].sum()
                     colors_p = [BRAND_RED, "#D65C69", "#E98C8E", "#F2B0B2", "#F9D4D5", BRAND_GRAY, "#BDBDBD"]
                     stats['pct'] = stats[_perf_col] / total_p * 100
-                    chart_labels_p = [f"<b>{r[_proj_col]}</b><br>{r['pct']:.1f}%" for _, r in stats.iterrows()]
+                    chart_labels_p = []
+                    for i, (_, r) in enumerate(stats.iterrows()):
+                        if i < 5:
+                            chart_labels_p.append(f"<b>{r[_proj_col]}</b><br>{r['pct']:.1f}%")
+                        else:
+                            chart_labels_p.append("")
                     with st.container(border=True):
                         _dname_color = BRAND_RED if dt not in ['비장애', '미등록'] else BRAND_BLUE
                         st.markdown(
