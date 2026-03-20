@@ -1907,7 +1907,15 @@ if st.session_state.get("presentation_mode", False):
                         )
                         fig_p = px.pie(stats, names=_proj_col, values=_perf_col, hole=0.48,
                                       color_discrete_sequence=colors_p)
+
+                        _rot_angle = 0
+                        if dt == '장루요루장애':
+                            _rot_angle = -90
+                        elif dt == '시각장애':
+                            _rot_angle = 20
+
                         fig_p.update_traces(
+                            rotation=_rot_angle,
                             text=chart_labels_p, textinfo='text', textposition='outside',
                             textfont_size=17,
                             hovertemplate="<b>%{label}</b><br>%{value:,.0f}명 (%{percent:.1%})<extra></extra>",
