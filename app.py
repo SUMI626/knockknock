@@ -909,96 +909,50 @@ elif '단위' in filtered_df.columns:
 # ================================================================
 
 # --- 공통 전처리: '명' 단위 행 추출 ---
-if actual_unit_col:
+if actual_unit_col and actual_unit_col in filtered_df.columns:
     cleaned_unit = filtered_df[actual_unit_col].astype(str).str.strip()
     is_person = (cleaned_unit == '명') | (cleaned_unit == '명(실인원)')
     df_person = filtered_df[is_person].copy()
 else:
     df_person = filtered_df.copy()
 
-# ================= 엑셀 전용 집계 로직 =================
-if source_option == "엑셀(2025최종/업로드)":
-    # 1. 연인원: 이름이 '기타'인 사람도 포함하여 단위='명'인 행의 실적 전부 합산
-    if performance_col in df_person.columns:
-        df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
-        총연인원 = df_person[performance_col].sum()
-    else:
-        총연인원 = len(df_person)
-
-    # 2. 실인원 처리를 위해 '기타' 제외
-    if name_col in df_person.columns:
-        is_etc = df_person[name_col].astype(str).str.contains('기타', na=False)
-        valid_unique_df = df_person[~is_etc].copy()
-    else:
-        valid_unique_df = df_person.copy()
-
-    # 중복 제거 기준 칼럼 식별 (이름, 생년월일, 장애유형, 장애정도, 팀)
-    col_birth_excel = '생년월일' if '생년월일' in valid_unique_df.columns else None
-    col_dtype_excel = '장애유형' if '장애유형' in valid_unique_df.columns else col_map.get('장애유형')
-    col_ddeg_excel = '장애정도' if '장애정도' in valid_unique_df.columns else None
-    
-    actual_team_col = team_col
-    if actual_team_col not in valid_unique_df.columns:
-        for c in valid_unique_df.columns:
-            if '팀' in str(c) or '부서' in str(c) or 'team' in str(c).lower():
-                actual_team_col = c
-                break
-
-    # 3. 실인원: 4개 항목 기준 중복 제거 후 남은 행의 개수
-    unique_cols_4 = [c for c in [name_col, col_birth_excel, col_dtype_excel, col_ddeg_excel] if c and c in valid_unique_df.columns]
-    if unique_cols_4:
-        총실인원_raw = len(valid_unique_df[unique_cols_4].drop_duplicates())
-        총실인원 = 총실인원_raw
-    else:
-        총실인원_raw = len(valid_unique_df)
-        총실인원 = 총실인원_raw
-
-    # 4. 중복실인원: 5개 항목(팀 추가) 기준 중복 제거 후 남은 행의 개수
-    unique_cols_5 = [c for c in [name_col, col_birth_excel, col_dtype_excel, col_ddeg_excel, actual_team_col] if c and c in valid_unique_df.columns]
-    if unique_cols_5:
-        중복실인원_raw = len(valid_unique_df[unique_cols_5].drop_duplicates())
-        중복실인원 = 중복실인원_raw
-    else:
-        중복실인원_raw = 총실인원_raw
-        중복실인원 = 총실인원
-
-# ================= 구글 시트 (기존) 집계 로직 =================
+# ================= 데이터 소스 통합 집계 로직 =================
+# 1. 연인원: '명' 행의 실적 합산 (기타 포함)
+if performance_col in df_person.columns:
+    df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
+    총연인원 = df_person[performance_col].sum()
 else:
-    if performance_col in df_person.columns:
-        df_person[performance_col] = pd.to_numeric(df_person[performance_col], errors='coerce').fillna(0)
-        총연인원 = df_person[performance_col].sum()
-    else:
-        총연인원 = len(df_person)
+    총연인원 = len(df_person)
 
-    if name_col in df_person.columns:
-        is_etc = df_person[name_col].astype(str).str.contains('기타', na=False)
-        valid_unique_df = df_person[~is_etc].copy()
-    else:
-        valid_unique_df = df_person.copy()
+# --- 실인원/중복실인원 기준 컬럼: 실제 스프레드시트 컬럼명 직접 매핑 ---
+_col_name  = '이름'     if '이름'     in df_person.columns else name_col
+_col_birth = '생년월일' if '생년월일' in df_person.columns else None
+_col_dtype = '장애유형' if '장애유형' in df_person.columns else None
+_col_ddeg  = '장애정도' if '장애정도' in df_person.columns else None
+_col_team  = '팀이름'   if '팀이름'   in df_person.columns else (team_col if team_col in df_person.columns else None)
 
-    valid_unique_df = valid_unique_df.loc[
-        valid_unique_df['고유ID'].notna() & 
-        (valid_unique_df['고유ID'].astype(str).str.strip() != '') &
-        (valid_unique_df['고유ID'].astype(str).str.strip() != 'nan')
-    ].copy()
+# 실인원용 4개 컬럼 / 중복실인원용 5개 컬럼 (존재하는 컬럼만)
+_uniq_cols_4 = [c for c in [_col_name, _col_birth, _col_dtype, _col_ddeg] if c and c in df_person.columns]
+_uniq_cols_5 = [c for c in [_col_name, _col_birth, _col_dtype, _col_ddeg, _col_team] if c and c in df_person.columns]
 
-    총실인원 = valid_unique_df['고유ID'].nunique()
-    총실인원_raw = valid_unique_df['raw_고유ID'].nunique()
+# 2. 실인원 처리를 위해 '기타' 제외
+if _col_name in df_person.columns:
+    _is_etc = df_person[_col_name].astype(str).str.contains('기타', na=False)
+    _df_for_uniq = df_person[~_is_etc].copy()
+else:
+    _df_for_uniq = df_person.copy()
 
-    actual_team_col = team_col
-    if actual_team_col not in valid_unique_df.columns:
-        for c in valid_unique_df.columns:
-            if '팀' in str(c) or '부서' in str(c) or 'team' in str(c).lower():
-                actual_team_col = c
-                break
+# 3. 총실인원: 4컬럼 기준 중복 제거 후 남은 행의 개수
+if _uniq_cols_4:
+    총실인원 = len(_df_for_uniq[_uniq_cols_4].drop_duplicates())
+else:
+    총실인원 = len(_df_for_uniq)
 
-    if actual_team_col in valid_unique_df.columns:
-        중복실인원 = len(valid_unique_df[['고유ID', actual_team_col]].drop_duplicates())
-        중복실인원_raw = len(valid_unique_df[['raw_고유ID', actual_team_col]].drop_duplicates())
-    else:
-        중복실인원 = 총실인원
-        중복실인원_raw = 총실인원_raw
-        actual_team_col = f"[ERROR] '팀' 콜럼을 찾을 수 없음."
+# 4. 중복실인원: 5컬럼(팀이름 포함) 기준 중복 제거 후 남은 행의 개수
+if _uniq_cols_5:
+    중복실인원 = len(_df_for_uniq[_uniq_cols_5].drop_duplicates())
+else:
+    중복실인원 = 총실인원
 
 # 4. 일평균 이용자: 연인원 / 운영 일수 (주말 및 법정공휴일 제외)
 def get_biz_days(parsed_dates):
@@ -1767,12 +1721,12 @@ if not st.session_state.get("presentation_mode", False):
     with tab2:
         # 실인원용 데이터셋: '기타' 제외 및 [이름+생년월일+장애유형+장애정도] 기준 중복 제거
         _sil_cols_tab = None
-        if all(c in valid_unique_df.columns for c in ['이름', '생년월일', '장애유형', '장애정도']):
+        if all(c in _df_for_uniq.columns for c in ['이름', '생년월일', '장애유형', '장애정도']):
             _sil_cols_tab = ['이름', '생년월일', '장애유형', '장애정도']
-        elif '고유ID' in valid_unique_df.columns:
+        elif '고유ID' in _df_for_uniq.columns:
             _sil_cols_tab = ['고유ID']
         
-        df_sil = valid_unique_df.drop_duplicates(subset=_sil_cols_tab).copy() if _sil_cols_tab else valid_unique_df.copy()
+        df_sil = _df_for_uniq.drop_duplicates(subset=_sil_cols_tab).copy() if _sil_cols_tab else _df_for_uniq.copy()
         
         if not df_sil.empty:
             # 1. 장애유형별 이용 현황 (실인원)
@@ -1787,7 +1741,7 @@ if not st.session_state.get("presentation_mode", False):
                 draw_age_bar_custom(df_sil, is_disabled=False, title_label="실인원")
                 
             # 4. 팀별 중복 실인원 현황
-            draw_team_duplicated_sil(valid_unique_df, col_map)
+            draw_team_duplicated_sil(_df_for_uniq, col_map)
                 
         else:
             st.info("실인원 현황을 구성할 수 있는 데이터가 없습니다.")
@@ -1827,11 +1781,11 @@ if st.session_state.get("presentation_mode", False):
 
     # 실인원용 데이터셋 준비
     _sil_cols_p = None
-    if all(c in valid_unique_df.columns for c in ['이름', '생년월일', '장애유형', '장애정도']):
+    if all(c in _df_for_uniq.columns for c in ['이름', '생년월일', '장애유형', '장애정도']):
         _sil_cols_p = ['이름', '생년월일', '장애유형', '장애정도']
-    elif '고유ID' in valid_unique_df.columns:
+    elif '고유ID' in _df_for_uniq.columns:
         _sil_cols_p = ['고유ID']
-    df_sil_p = valid_unique_df.drop_duplicates(subset=_sil_cols_p).copy() if _sil_cols_p else valid_unique_df.copy()
+    df_sil_p = _df_for_uniq.drop_duplicates(subset=_sil_cols_p).copy() if _sil_cols_p else _df_for_uniq.copy()
 
     # 슬라이드 함수 정의
     def _slide_disability_yeon():
@@ -1865,7 +1819,7 @@ if st.session_state.get("presentation_mode", False):
         draw_age_bar_custom(df_sil_p, is_disabled=False, title_label="실인원")
 
     def _slide_team_sil():
-        draw_team_duplicated_sil(valid_unique_df, col_map)
+        draw_team_duplicated_sil(_df_for_uniq, col_map)
 
     # 동적 슬라이드: 장애유형별 선호 프로그램 (도넛)
     DYNAMIC_PREF_SLIDES = []
