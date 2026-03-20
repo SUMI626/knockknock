@@ -1624,7 +1624,7 @@ def draw_cross_analysis(df_yeon, col_map):
         st.plotly_chart(apply_chart_style(fig), use_container_width=True)
 
 # ================= 차트 영역: 두 개의 탭으로 구성 =================
-tab1, tab2 = st.tabs(["📊 연인원 현황", "👤 실인원 현황"])
+# tab1, tab2 = st.tabs(["📊 연인원 현황", "👤 실인원 현황"]) # 중복 탭 제거
 
 # 연인원 데이터 필터링 (명 단위 & 실적 합산용)
 unit_col = col_map.get('단위', '명/건')
