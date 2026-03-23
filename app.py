@@ -222,16 +222,21 @@ def load_data_gsheets(spreadsheet_url):
 def clean_and_map_data(df):
     if df.empty:
         return pd.DataFrame(), "데이터가 비어 있습니다."
-    df.columns = df.columns.astype(str).str.strip()
+    # 모든 컬럼명에서 모든 공백을 제거하여 완벽하게 정제합니다. 
+    # (예: ' 이름' -> '이름', '명 / 건' -> '명/건')
+    df.columns = df.columns.astype(str).str.replace(r'\s+', '', regex=True)
     
     # 필수 컬럼 존재하는지 유연하게 찾기
-    def find_col(keywords):
+    def find_col(keywords, exclude=None):
         for col in df.columns:
+            # exclude 키워드가 있으면 그것이 포함된 컬럼은 건너뜀
+            if exclude and any(e in col for e in exclude):
+                continue
             if any(k in col for k in keywords):
                 return col
         return None
         
-    col_name = find_col(['이름', '성명']) or '이름'
+    col_name = find_col(['이름', '성명'], exclude=['팀']) or '이름'
     col_birth = find_col(['생년월일', '생일', '000000-2']) or '생년월일'
     col_basic = find_col(['기초생활', '수급']) or '기초생활'
     col_disability = find_col(['장애정도', '장애등급']) or '장애정도'
@@ -249,7 +254,7 @@ def clean_and_map_data(df):
     actual_birth_col = '생년월일' if '생년월일' in df.columns else col_birth
     actual_type_col = '장애유형' if '장애유형' in df.columns else col_disability_type
     actual_deg_col = '장애정도' if '장애정도' in df.columns else col_disability
-    actual_team_col = '팀이름' if '팀이름' in df.columns else find_col(['팀', '부서', 'team'])
+    actual_team_col = '팀이름' if '팀이름' in df.columns else col_team
     
     # ----------------------------------------------------
     # ★ 기존의 ffill/bfill 로직 삭제
@@ -1214,6 +1219,10 @@ def draw_etc_top10_yeon(df_yeon, col_map):
                 )
                 fig.update_coloraxes(showscale=False)
                 st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("'기타' 성명으로 등록된 이용 내역이 없습니다. (세부사업 조회 실패)")
+    else:
+        st.info("'기타' 성명으로 등록된 데이터가 없습니다.")
 
 # 7. 장애유형별 선호 프로그램 (가로 막대그래프)
 def draw_preferred_bar_disability(df_yeon, col_map):
