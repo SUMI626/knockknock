@@ -813,10 +813,9 @@ def checkbox_group(label, options, key_prefix, is_sidebar=True, expanded=False, 
 
     # 2. 콜백 함수: 전체 선택 상태가 바뀔 때
     def on_all_change():
-        new_val = st.session_state[all_key]
+        new_val = st.session_state.get(all_key, False)
         for i in range(len(options)):
             st.session_state[f"{key_prefix}_{i}"] = new_val
-        # st.rerun() 제거: 콜백 내부에서는 no-op이기 때문
 
     # 3. 콜백 함수: 개별 항목이 바뀔 때
     def on_item_change():
