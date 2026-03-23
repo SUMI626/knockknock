@@ -537,7 +537,7 @@ def draw_monthly_trend(df_data):
     else:
         st.info("차트를 그릴 수 있는 월 데이터가 없습니다.")
 
-# 2. 요일별 혼잡도 (막대 차트)
+# 2. 요일별 이용 현황 (막대 차트)
 def draw_daily_crowdedness(df_data):
     if '요일' in df_data.columns:
         day_map = {0:'월', 1:'화', 2:'수', 3:'목', 4:'금', 5:'토', 6:'일'}
@@ -546,7 +546,7 @@ def draw_daily_crowdedness(df_data):
         daily_counts = daily_counts.sort_values('요일')
         
         with st.container(border=True):
-            st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:5px;'>🕒 요일별 이용자 혼잡도</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:5px;'>🕒 요일별 이용 현황</div>", unsafe_allow_html=True)
             fig = px.bar(daily_counts, x='요일명', y='이용자수', 
                          text='이용자수',
                          color='이용자수',
@@ -1590,7 +1590,10 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
             paper_bgcolor='rgba(0,0,0,0)',
             height=440
         )
-        st.plotly_chart(apply_chart_style(fig), use_container_width=True)
+        fig = apply_chart_style(fig)
+        if presentation_mode:
+            fig.update_traces(domain=dict(x=[0.05, 0.95], y=[0.05, 0.95]))
+        st.plotly_chart(fig, use_container_width=True)
 
 # ================= 차트 영역: 두 개의 탭으로 구성 =================
 # tab1, tab2 = st.tabs(["📊 연인원 현황", "👤 실인원 현황"]) # 중복 탭 제거
@@ -1725,7 +1728,7 @@ if not st.session_state.get("presentation_mode", False):
         # 7. 익명 참여자 분석
         draw_etc_top10_yeon(df_yeon, col_map)
         
-        # 8. 월별 추이 및 요일별 혼잡도 (나란히 배치)
+        # 8. 월별 추이 및 요일별 이용 현황 (나란히 배치)
         col_trend, col_crowd = st.columns(2)
         with col_trend:
             draw_monthly_trend(df_yeon)
@@ -1864,29 +1867,45 @@ if st.session_state.get("presentation_mode", False):
                         st.info(f"{dt}: 데이터 없음")
                         return
                     stats = _df.groupby(_proj_col)[_perf_col].sum().reset_index()
-                    stats = stats[stats[_perf_col] > 0].sort_values(_perf_col, ascending=False).head(7).copy()
+                    stats = stats[stats[_perf_col] > 0].sort_values(_perf_col, ascending=False).head(5).copy()
                     if stats.empty:
                         st.info(f"{dt}: 프로그램 데이터 없음")
                         return
                     total_p = stats[_perf_col].sum()
-                    colors_p = [BRAND_RED, "#D65C69", "#E98C8E", "#F2B0B2", "#F9D4D5", BRAND_GRAY, "#BDBDBD"]
                     stats['pct'] = stats[_perf_col] / total_p * 100
+                    
+                    group_map_local = {
+                        '지체장애': 'Red', '뇌병변장애': 'Red', '시각장애': 'Red', '청각장애': 'Red', '언어장애': 'Red',
+                        '신장장애': 'Blue', '심장장애': 'Blue', '간장애': 'Blue', '장루요루장애': 'Blue', '뇌전증장애': 'Blue',
+                        '지적장애': 'Yellow', '자폐성장애': 'Yellow', '정신장애': 'Yellow',
+                        '미등록': 'Gray', '비장애': 'Gray'
+                    }
+                    group_palettes_local = {
+                        'Red': [BRAND_RED, "#D65C69", "#E98C8E", "#F2B0B2", "#F9D4D5", BRAND_GRAY, "#BDBDBD"],
+                        'Blue': [BRAND_BLUE, CHART_BLUE, "#A4CAD2", "#C6E0E6", "#E3EFF2", BRAND_GRAY, "#BDBDBD"],
+                        'Yellow': [BRAND_YELLOW, CHART_YELLOW, "#F9D59B", "#FBE6C4", "#FDF3E2", BRAND_GRAY, "#BDBDBD"],
+                        'Gray': [BRAND_GRAY, CHART_GRAY, "#BDBDBD", "#D6D6D6", "#EBEBEB", "#999999", "#777777"]
+                    }
+                    _grp = group_map_local.get(dt, 'Gray')
+                    colors_p = group_palettes_local[_grp]
+                    
                     chart_labels_p = []
+                    legend_texts = []
                     for i, (_, r) in enumerate(stats.iterrows()):
-                        if i < 5:
-                            chart_labels_p.append(f"<b>{r[_proj_col]}</b><br>{r['pct']:.1f}%")
-                        else:
-                            chart_labels_p.append("")
+                        chart_labels_p.append(f"<b>{r[_proj_col]}</b><br>{r['pct']:.1f}%")
+                        legend_texts.append(f"{r[_proj_col]} {r[_perf_col]:,.0f}명 ({r['pct']:.1f}%)")
+                    stats['_legend'] = legend_texts
+                        
                     with st.container(border=True):
-                        _dname_color = BRAND_RED if dt not in ['비장애', '미등록'] else BRAND_BLUE
+                        _dname_color = colors_p[0]
                         st.markdown(
                             f"<div style='font-size:24px;font-weight:bold;color:{BRAND_GRAY}'>"
-                            f"<span style='color:{_dname_color} !important;'>{dt}</span> 선호 프로그램 (연인원 기준) "
+                            f"⭐ <span style='color:{_dname_color} !important;'>{dt}</span> 선호 프로그램 (Top 5) "
                             f"<span style='font-size:16px;color:#888 !important;'>*중식제공 제외</span></div>",
                             unsafe_allow_html=True
                         )
-                        fig_p = px.pie(stats, names=_proj_col, values=_perf_col, hole=0.48,
-                                      color_discrete_sequence=colors_p)
+                        fig_p = px.pie(stats, names='_legend', values=_perf_col, hole=0.48,
+                                      color_discrete_sequence=colors_p, custom_data=[_proj_col])
 
                         _rot_angle = 0
                         if dt == '장루요루장애':
@@ -1898,7 +1917,7 @@ if st.session_state.get("presentation_mode", False):
                             rotation=_rot_angle,
                             text=chart_labels_p, textinfo='text', textposition='outside',
                             textfont_size=17,
-                            hovertemplate="<b>%{label}</b><br>%{value:,.0f}명 (%{percent:.1%})<extra></extra>",
+                            hovertemplate="<b>%{customdata[0]}</b><br>%{value:,.0f}명 (%{percent:.1%})<extra></extra>",
                             domain=dict(x=[0.1, 0.55], y=[0.1, 0.9])
                         )
                         fig_p.update_layout(
@@ -1909,7 +1928,7 @@ if st.session_state.get("presentation_mode", False):
                         )
                         st.plotly_chart(apply_chart_style(fig_p), use_container_width=True)
                 return _fn
-            DYNAMIC_PREF_SLIDES.append((f"장애유형별 선호 프로그램 – {d_type}", make_slide_fn()))
+            DYNAMIC_PREF_SLIDES.append(("장애유형별 선호 프로그램", make_slide_fn()))
 
     SLIDES = [
         ("장애유형별 이용 현황 (연인원)",         _slide_disability_yeon),
@@ -1918,7 +1937,7 @@ if st.session_state.get("presentation_mode", False):
         ("연령대별 현황 – 장애/미등록 (연인원)",   _slide_age_disabled),
         ("연령대별 현황 – 비장애 (연인원)",        _slide_age_nondisabled),
         ("월별 이용자 추이",                       _slide_monthly),
-        ("요일별 혼잡도",                          _slide_daily),
+        ("요일별 이용 현황",                          _slide_daily),
         ("익명 참여자 분석 (기타)",                 _slide_etc),
         ("신규 이용자 현황",                        _slide_new_user),
         ("장애유형별 이용 현황 (실인원)",            _slide_disability_sil),
