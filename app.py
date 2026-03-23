@@ -1202,7 +1202,7 @@ def draw_etc_top10_yeon(df_yeon, col_map, presentation_mode=False):
                     st.markdown(
                         f"<div style='font-size:24px;font-weight:bold;color:{BRAND_GRAY}'>"
                         f"⭐ <span style='color:{BRAND_GRAY} !important;'>기타(익명)</span> 선호 프로그램 (Top 5) "
-                        f"<span style='font-size:16px;color:#888 !important;'>*연인원: {total_etc:,.0f}명 / 중식제공 시각적 비율 50% 보정</span></div>",
+                        f"<span style='font-size:16px;color:#888 !important;'>*연인원: {total_etc:,.0f}명</span></div>",
                         unsafe_allow_html=True
                     )
                     
