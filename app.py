@@ -1167,8 +1167,8 @@ def draw_age_bar_custom(df_yeon, is_disabled=True, title_label="연인원"):
             fig.update_yaxes(title_text="실적 합계", range=[0, max_val * 1.2])
             st.plotly_chart(fig, use_container_width=True)
 
-# 4. 익명 참여자 분석 (Top 5 - 트리맵 방식)
-def draw_etc_top10_yeon(df_yeon, col_map):
+# 4. 익명 참여자 분석 (Top 5 - 트리맵 방식 또는 프레젠테이션 모드 도넛)
+def draw_etc_top10_yeon(df_yeon, col_map, presentation_mode=False):
     name_col = col_map.get('이름', '이름')
     project_col = col_map.get('세부사업', '세부사업')
     team_col = col_map.get('팀', '팀')
@@ -1196,30 +1196,67 @@ def draw_etc_top10_yeon(df_yeon, col_map):
             
             etc_stats['비중'] = (etc_stats['실적'] / total_etc) * 100
             
-            with st.container(border=True): # 연령대 그래프와 똑같은 디자인의 박스
-                # 상단 연령대 차트와 타이틀 스타일 완벽 동기화 (폰트, 굵기, 아이콘)
-                st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:5px;'>👤 '기타' 이용자 참여 비중 분석 (연인원: {total_etc:,.0f}명)</div>", unsafe_allow_html=True)
-                
-                # values는 영역 크기 제어용(visual_weight), color는 색상 농도 제어용(실적)
-                fig = px.treemap(etc_stats, path=[project_col], values='visual_weight',
-                                 color='실적',
-                                 custom_data=['실적'],
-                                 color_continuous_scale=[[0, '#FFF9E1'], [1, BRAND_YELLOW]])
-                
-                fig.update_traces(
-                    texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}", # 사업명 + 실제 실적 인원수 표시
-                    hovertemplate="<b>%{label}</b><br>실적: %{customdata[0]:,.0f}명<extra></extra>",
-                    textfont=dict(color="#333333", size=12, family="Arial Black"), # 12px 고정
-                    marker=dict(line=dict(width=1, color='white'))
-                )
-                fig.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', # 회색 배경 완전 제거
-                    plot_bgcolor='rgba(0,0,0,0)',  # 회색 배경 완전 제거
-                    margin=dict(t=0, b=0, l=0, r=0), # 여백 0으로 밀착
-                    height=150 # 슬림한 가로 바 형태
-                )
-                fig.update_coloraxes(showscale=False)
-                st.plotly_chart(fig, use_container_width=True)
+            if presentation_mode:
+                # --- 프레젠테이션 모드 전용 로직: 대형 도넛 차트 ---
+                with st.container(border=True):
+                    st.markdown(
+                        f"<div style='font-size:24px;font-weight:bold;color:{BRAND_GRAY}'>"
+                        f"⭐ <span style='color:{BRAND_GRAY} !important;'>기타(익명)</span> 선호 프로그램 (Top 5) "
+                        f"<span style='font-size:16px;color:#888 !important;'>*연인원: {total_etc:,.0f}명 / 중식제공 시각적 비율 50% 보정</span></div>",
+                        unsafe_allow_html=True
+                    )
+                    
+                    colors_p = [BRAND_GRAY, CHART_GRAY, "#BDBDBD", "#D6D6D6", "#EBEBEB", "#999999"]
+                    
+                    chart_labels_p = []
+                    legend_texts = []
+                    for i, (_, r) in enumerate(etc_stats.iterrows()):
+                        chart_labels_p.append(f"<b>{r[project_col]}</b><br>{r['비중']:.1f}%")
+                        legend_texts.append(f"{r[project_col]} {r['실적']:,.0f}명 ({r['비중']:.1f}%)")
+                    etc_stats['_legend'] = legend_texts
+                    
+                    fig_p = px.pie(etc_stats, names='_legend', values='visual_weight', hole=0.48,
+                                  color_discrete_sequence=colors_p, custom_data=['실적', project_col])
+                    
+                    fig_p.update_traces(
+                        text=chart_labels_p, textinfo='text', textposition='outside',
+                        textfont_size=17,
+                        hovertemplate="<b>%{customdata[1]}</b><br>실적: %{customdata[0]:,.0f}명 (%{percent:.1%})<extra></extra>",
+                        domain=dict(x=[0.1, 0.55], y=[0.1, 0.9])
+                    )
+                    fig_p.update_layout(
+                        showlegend=True,
+                        legend=dict(x=0.65, xanchor='left', y=0.5, yanchor='middle', font=dict(size=16)),
+                        margin=dict(t=0, b=0, l=0, r=0), height=500,
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    st.plotly_chart(apply_chart_style(fig_p), use_container_width=True)
+            else:
+                # --- 일반 대시보드 모드: 슬림 트리맵 ---
+                with st.container(border=True): # 연령대 그래프와 똑같은 디자인의 박스
+                    # 상단 연령대 차트와 타이틀 스타일 완벽 동기화 (폰트, 굵기, 아이콘)
+                    st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:5px;'>👤 '기타' 이용자 참여 비중 분석 (연인원: {total_etc:,.0f}명)</div>", unsafe_allow_html=True)
+                    
+                    # values는 영역 크기 제어용(visual_weight), color는 색상 농도 제어용(실적)
+                    fig = px.treemap(etc_stats, path=[project_col], values='visual_weight',
+                                     color='실적',
+                                     custom_data=['실적'],
+                                     color_continuous_scale=[[0, '#FFF9E1'], [1, BRAND_YELLOW]])
+                    
+                    fig.update_traces(
+                        texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}", # 사업명 + 실제 실적 인원수 표시
+                        hovertemplate="<b>%{label}</b><br>실적: %{customdata[0]:,.0f}명<extra></extra>",
+                        textfont=dict(color="#333333", size=12, family="Arial Black"), # 12px 고정
+                        marker=dict(line=dict(width=1, color='white'))
+                    )
+                    fig.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', # 회색 배경 완전 제거
+                        plot_bgcolor='rgba(0,0,0,0)',  # 회색 배경 완전 제거
+                        margin=dict(t=0, b=0, l=0, r=0), # 여백 0으로 밀착
+                        height=150 # 슬림한 가로 바 형태
+                    )
+                    fig.update_coloraxes(showscale=False)
+                    st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("'기타' 성명으로 등록된 이용 내역이 없습니다. (세부사업 조회 실패)")
     else:
@@ -1832,7 +1869,7 @@ if st.session_state.get("presentation_mode", False):
         draw_daily_crowdedness(df_yeon)
 
     def _slide_etc():
-        draw_etc_top10_yeon(df_yeon, col_map)
+        draw_etc_top10_yeon(df_yeon, col_map, presentation_mode=True)
 
     def _slide_new_user():
         draw_new_user_analysis(df_yeon, col_map)
@@ -1920,6 +1957,8 @@ if st.session_state.get("presentation_mode", False):
                         _rot_angle = 0
                         if dt == '장루요루장애':
                             _rot_angle = -90
+                        elif dt == '뇌전증장애':
+                            _rot_angle = 90
                         elif dt == '시각장애':
                             _rot_angle = 20
 
