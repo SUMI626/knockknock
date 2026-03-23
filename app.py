@@ -1203,11 +1203,12 @@ def draw_etc_top10_yeon(df_yeon, col_map):
                 # values는 영역 크기 제어용(visual_weight), color는 색상 농도 제어용(실적)
                 fig = px.treemap(etc_stats, path=[project_col], values='visual_weight',
                                  color='실적',
+                                 custom_data=['실적'],
                                  color_continuous_scale=[[0, '#FFF9E1'], [1, BRAND_YELLOW]])
                 
                 fig.update_traces(
-                    textinfo="label+value", # 사업명 + 인원수 표시
-                    hovertemplate="<b>%{label}</b><br>실적: %{value:,.0f}명<extra></extra>",
+                    texttemplate="<b>%{label}</b><br>%{customdata[0]:,.0f}", # 사업명 + 실제 실적 인원수 표시
+                    hovertemplate="<b>%{label}</b><br>실적: %{customdata[0]:,.0f}명<extra></extra>",
                     textfont=dict(color="#333333", size=12, family="Arial Black"), # 12px 고정
                     marker=dict(line=dict(width=1, color='white'))
                 )
