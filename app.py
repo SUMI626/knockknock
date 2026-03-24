@@ -470,6 +470,7 @@ def clean_and_map_data(df):
         '장애유형': col_disability_type,
         '실적': col_performance,
         '단위': col_unit,
+        '고유ID': '고유ID',
     }
     return df, columns_map
 
