@@ -751,7 +751,7 @@ DEFAULT_GSHEETS_URL = "https://docs.google.com/spreadsheets/d/1EZ1wmywG0i5Plv1Rx
 if not _is_pres:
     with st.container(border=True):
         st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:10px;'>🛠️ 데이터 소스 선택</div>", unsafe_allow_html=True)
-        source_col, input_col = st.columns([1, 2])
+        source_col, input_col = st.columns([1, 1])
 
         with source_col:
             source_option = st.radio(
