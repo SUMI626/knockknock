@@ -751,30 +751,26 @@ DEFAULT_GSHEETS_URL = "https://docs.google.com/spreadsheets/d/1EZ1wmywG0i5Plv1Rx
 if not _is_pres:
     with st.container(border=True):
         st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:10px;'>🛠️ 데이터 소스 선택</div>", unsafe_allow_html=True)
-        source_col, input_col = st.columns([1, 1])
+        source_option = st.radio(
+            "분석할 데이터를 선택해 주세요:",
+            ["2025년 최종본(엑셀)", "2026년 실시간(구글 스프레드시트)"],
+            index=0,
+            label_visibility="collapsed"
+        )
+        st.session_state["_pres_source_option"] = source_option
 
-        with source_col:
-            source_option = st.radio(
-                "분석할 데이터를 선택해 주세요:",
-                ["2025년 최종본(엑셀)", "2026년 실시간(구글 스프레드시트)"],
-                index=0,
-                label_visibility="collapsed"
-            )
-            st.session_state["_pres_source_option"] = source_option
-
-        with input_col:
-            if source_option == "2026년 실시간(구글 스프레드시트)":
-                spreadsheet_url = DEFAULT_GSHEETS_URL
-                data_source = spreadsheet_url
-                st.session_state["_pres_data_source"] = data_source
+        if source_option == "2026년 실시간(구글 스프레드시트)":
+            spreadsheet_url = DEFAULT_GSHEETS_URL
+            data_source = spreadsheet_url
+            st.session_state["_pres_data_source"] = data_source
+        else:
+            uploaded_file = st.file_uploader("📂 엑셀 파일 업로드 (.xlsx)", type=['xlsx'], label_visibility="collapsed")
+            if uploaded_file is not None:
+                data_source = uploaded_file
             else:
-                uploaded_file = st.file_uploader("📂 엑셀 파일 업로드 (.xlsx)", type=['xlsx'], label_visibility="collapsed")
-                if uploaded_file is not None:
-                    data_source = uploaded_file
-                else:
-                    data_source = "2025실적데이터.xlsx"
-                    st.info("ℹ️ 업로드된 파일이 없어 '2025실적데이터.xlsx'를 기본으로 사용합니다.")
-                st.session_state["_pres_data_source"] = data_source
+                data_source = "2025실적데이터.xlsx"
+                st.info("ℹ️ 업로드된 파일이 없어 '2025실적데이터.xlsx'를 기본으로 사용합니다.")
+            st.session_state["_pres_data_source"] = data_source
 else:
     source_option = st.session_state.get("_pres_source_option", "2026년 실시간(구글 스프레드시트)")
     data_source = st.session_state.get("_pres_data_source", DEFAULT_GSHEETS_URL)
