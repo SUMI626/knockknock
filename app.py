@@ -1629,19 +1629,18 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
         fig.update_traces(
             texttemplate="<b>%{label}</b><br>%{percent:.1%}",
             textposition="outside",
-            hovertemplate="<b>%{label}</b><br>연인원: %{value:,.0f}명<br>비중: %{percent:.1%}<extra></extra>"
+            hovertemplate="<b>%{label}</b><br>연인원: %{value:,.0f}명<br>비중: %{percent:.1%}<extra></extra>",
+            domain=dict(x=[0.1, 0.55], y=[0.1, 0.9])
         )
         fig.update_layout(
             showlegend=True,
             title="",
-            legend=dict(orientation="v", x=1.02, xanchor="left", y=0.5, yanchor="middle", font=dict(size=12)),
-            margin=dict(t=10, b=20, l=20, r=20),
+            legend=dict(orientation="v", x=0.65, xanchor="left", y=0.5, yanchor="middle", font=dict(size=18 if presentation_mode else 12)),
+            margin=dict(t=0, b=0, l=0, r=0, pad=0),
             paper_bgcolor='rgba(0,0,0,0)',
-            height=440
+            height=500
         )
         fig = apply_chart_style(fig)
-        if presentation_mode:
-            fig.update_traces(domain=dict(x=[0.05, 0.95], y=[0.05, 0.95]))
         st.plotly_chart(fig, use_container_width=True)
 
 # ================= 차트 영역: 두 개의 탭으로 구성 =================
