@@ -1626,6 +1626,9 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
             hole=0.48,
             color_discrete_sequence=colors
         )
+        
+        fig = apply_chart_style(fig)
+        
         fig.update_traces(
             texttemplate="<b>%{label}</b><br>%{percent:.1%}",
             textposition="outside",
@@ -1640,7 +1643,6 @@ def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
             paper_bgcolor='rgba(0,0,0,0)',
             height=500
         )
-        fig = apply_chart_style(fig)
         st.plotly_chart(fig, use_container_width=True)
 
 # ================= 차트 영역: 두 개의 탭으로 구성 =================
