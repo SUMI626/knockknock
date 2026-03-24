@@ -754,7 +754,7 @@ if not _is_pres:
         with source_col:
             source_option = st.radio(
                 "분석할 데이터를 선택해 주세요:",
-                ["2026년 실시간(구글 스프레드시트)", "2025년 최종본(엑셀)"],
+                ["2025년 최종본(엑셀)", "2026년 실시간(구글 스프레드시트)"],
                 index=0,
                 label_visibility="collapsed"
             )
