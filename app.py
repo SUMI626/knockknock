@@ -677,6 +677,8 @@ if "pres_slide_idx" not in st.session_state:
     st.session_state["pres_slide_idx"] = 0
 if "pres_interval" not in st.session_state:
     st.session_state["pres_interval"] = 5
+if "_pres_source_option" not in st.session_state:
+    st.session_state["_pres_source_option"] = "2025년 최종본(엑셀)"
 
 # 타이틀 | 프리젠테이션 보기 버튼 | 시간 드롭다운
 st.markdown("""
