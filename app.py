@@ -127,7 +127,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 }}
 
 /* ========= 태블릿/모바일 반응형 레이아웃 전용 (데스크톱 원본 유지) ========= */
-@media (max-width: 1024px) {{
+/* 아이패드 프로 12.9 (해상도 1366px) 등 대형 태블릿까지 포괄 */
+@media (max-width: 1366px) {{
     /* 1. 대시보드 메인 - 메트릭 박스 간격 확보 */
     div[data-testid="stMetric"], .stMetric {{
         padding: 5px 2px !important;
@@ -138,7 +139,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     
     /* 2. 프리젠테이션 모드 - 강제 몰입형 뷰의 하단 잘림 방지를 위해 빈 공간 추가 */
     body.pres-active [data-testid="stAppViewBlockContainer"] {{
-        padding-bottom: 50px !important; /* 태블릿 하단 잘림 방지용 여백 */
+        padding-bottom: 200px !important; /* 태블릿 하단 잘림 방지용 여유 공간 대폭 확대 */
     }}
 }}
 
