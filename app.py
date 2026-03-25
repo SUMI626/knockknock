@@ -5,7 +5,11 @@ import pandas as pd
 import re
 import plotly.express as px
 
-st.set_page_config(page_title="이용자 현황 분석 대시보드", layout="wide")
+st.set_page_config(
+    page_title="이용자 현황 분석 대시보드",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # 가독성을 높이기 위한 전역 CSS 및 브랜드 컬러 적용
 BRAND_RED = "#BE1E2D"
@@ -172,6 +176,41 @@ body.pres-active [data-testid="stMainBlockContainer"] {{
 .pres-main-btn-container button[data-testid="baseButton-primary"]:hover {{
     background-color: #9a1825 !important;
     background: #9a1825 !important;
+}}
+
+/* ========= 라이트 모드 완전 강제 (태블릿/모바일 다크모드 대응) ========= */
+html, body {{
+    background-color: #ffffff !important;
+    color: #31333f !important;
+}}
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {{
+    background-color: #ffffff !important;
+    color: #31333f !important;
+}}
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div,
+[data-testid="stSidebarContent"] {{
+    background-color: #f8f9fa !important;
+    color: #31333f !important;
+}}
+[data-testid="stHeader"] {{
+    background-color: #ffffff !important;
+}}
+/* 모든 입력 요소 라이트 모드 강제 */
+.stSelectbox, .stMultiSelect, .stTextInput, .stRadio,
+.stCheckbox, .stFileUploader, .stContainer {{
+    background-color: #ffffff !important;
+    color: #31333f !important;
+}}
+/* 사이드바 텍스트 */
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div {{
+    color: #31333f !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -721,9 +760,8 @@ div[data-testid="stSelectbox"] {
 _is_pres = st.session_state.get("presentation_mode", False)
 
 if not _is_pres:
-    _title_col, _btn_col, _interval_col = st.columns([7.7, 1.5, 0.8], vertical_alignment="center")
-    with _title_col:
-        st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
+    _btn_col, _interval_col = st.columns([3, 1])
     with _btn_col:
         if st.button("🎥 프리젠테이션 보기", key="pres_main_btn", use_container_width=True, type="primary"):
             st.session_state["presentation_mode"] = True
