@@ -136,8 +136,18 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     div[data-testid="stVerticalBlockBorderWrapper"] {{
         padding: 12px 10px !important;
     }}
+
+    /* 2. 헤더 행 (타이틀+버튼+드롭다운) - 태블릿에서도 가로 한 줄 강제 유지 */
+    [data-testid="stHorizontalBlock"]:first-of-type {{
+        flex-wrap: nowrap !important;
+        flex-direction: row !important;
+    }}
+    [data-testid="stHorizontalBlock"]:first-of-type > div {{
+        min-width: 0 !important;
+        flex-shrink: 1 !important;
+    }}
     
-    /* 2. 프리젠테이션 모드 - 강제 몰입형 뷰의 하단 잘림 방지를 위해 빈 공간 추가 */
+    /* 3. 프리젠테이션 모드 - 강제 몰입형 뷰의 하단 잘림 방지를 위해 빈 공간 추가 */
     body.pres-active [data-testid="stAppViewBlockContainer"] {{
         padding-bottom: 200px !important; /* 태블릿 하단 잘림 방지용 여유 공간 대폭 확대 */
     }}
