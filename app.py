@@ -70,7 +70,7 @@ div[data-testid="stMetricLabel"] p {{
     color: #4D4D4D !important;
     margin-bottom: 0px !important;
 }}
-/* 메트릭 박스 센터 정렬 및 간격 */
+/* 메트릭 박스 센터 정렬 및 간격 축소 */
 div[data-testid="stMetric"], .stMetric {{
     display: flex !important;
     flex-direction: column !important;
@@ -78,13 +78,13 @@ div[data-testid="stMetric"], .stMetric {{
     justify-content: center !important;
     text-align: center !important;
     width: 100% !important;
-    padding: 8px 4px !important;
+    padding: 0px !important; /* 내부 패딩 제거 */
 }}
-/* 요약 박스 테두리 및 패딩 */
+/* 요약 박스 테두리 및 패딩 축소 */
 div[data-testid="stVerticalBlockBorderWrapper"] {{
-    border: 4px solid {BRAND_GRAY} !important;
+    border: 4px solid {BRAND_GRAY} !important; /* 6px -> 4px */
     border-radius: 10px !important;
-    padding: 12px 20px !important;
+    padding: 10px 20px !important; /* 위아래 패딩 대폭 축소 */
     background-color: white !important;
     box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
 }}
@@ -121,9 +121,25 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
     color: white !important;
 }}
 
-/* 차트 컨테이너 내부 여백 (차트는 자체 마진으로 제어) */
-div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+/* 차트 외부 여백 제거 전용 */
+div[data-testid="stVerticalBlockBorderWrapper"] {{
     padding: 0px !important;
+}}
+
+/* ========= 태블릿/모바일 반응형 레이아웃 전용 (데스크톱 원본 유지) ========= */
+@media (max-width: 1024px) {{
+    /* 1. 대시보드 메인 - 메트릭 박스 간격 확보 */
+    div[data-testid="stMetric"], .stMetric {{
+        padding: 5px 2px !important;
+    }}
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+        padding: 12px 10px !important;
+    }}
+    
+    /* 2. 프리젠테이션 모드 - 강제 몰입형 뷰의 하단 잘림 방지를 위해 빈 공간 추가 */
+    body.pres-active [data-testid="stAppViewBlockContainer"] {{
+        padding-bottom: 50px !important; /* 태블릿 하단 잘림 방지용 여백 */
+    }}
 }}
 
 /* ========= 프리젠테이션 모드 스타일 ========= */
@@ -760,8 +776,9 @@ div[data-testid="stSelectbox"] {
 _is_pres = st.session_state.get("presentation_mode", False)
 
 if not _is_pres:
-    st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
-    _btn_col, _interval_col = st.columns([3, 1])
+    _title_col, _btn_col, _interval_col = st.columns([7.7, 1.5, 0.8], vertical_alignment="center")
+    with _title_col:
+        st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
     with _btn_col:
         if st.button("🎥 프리젠테이션 보기", key="pres_main_btn", use_container_width=True, type="primary"):
             st.session_state["presentation_mode"] = True
