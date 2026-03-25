@@ -777,8 +777,9 @@ div[data-testid="stSelectbox"] {
 _is_pres = st.session_state.get("presentation_mode", False)
 
 if not _is_pres:
-    st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
-    _btn_col, _interval_col = st.columns([3, 1])
+    _title_col, _btn_col, _interval_col = st.columns([7.7, 1.5, 0.8], vertical_alignment="center")
+    with _title_col:
+        st.markdown("<div class='main-title-container'><h1>📊 이용자 현황 분석 대시보드</h1></div>", unsafe_allow_html=True)
     with _btn_col:
         if st.button("🎥 프리젠테이션 보기", key="pres_main_btn", use_container_width=True, type="primary"):
             st.session_state["presentation_mode"] = True
