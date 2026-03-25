@@ -804,6 +804,38 @@ if not _is_pres:
             key="pres_interval_select",
             label_visibility="collapsed"
         )
+    # JS: 렌더링 후 첫 번째 가로 행을 강제로 한 줄 유지 (flex-wrap 강제 override)
+    st.markdown("""
+    <script>
+    (function fixHeaderRow() {
+        var attempts = 0;
+        var maxAttempts = 30;
+        function tryFix() {
+            var blocks = window.parent.document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+            if (blocks.length > 0) {
+                var firstBlock = blocks[0];
+                firstBlock.style.setProperty('flex-wrap', 'nowrap', 'important');
+                firstBlock.style.setProperty('flex-direction', 'row', 'important');
+                firstBlock.style.setProperty('align-items', 'center', 'important');
+                // Also fix each child column to prevent overflow-hiding
+                var cols = firstBlock.querySelectorAll('[data-testid="stColumn"]');
+                cols.forEach(function(col) {
+                    col.style.setProperty('min-width', '0', 'important');
+                    col.style.setProperty('overflow', 'hidden', 'important');
+                });
+            } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(tryFix, 100);
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryFix);
+        } else {
+            tryFix();
+        }
+    })();
+    </script>
+    """, unsafe_allow_html=True)
 else:
     _exit_col = st.columns([9.25, 0.75])[1]
     with _exit_col:
