@@ -817,7 +817,6 @@ if not _is_pres:
                 firstBlock.style.setProperty('flex-wrap', 'nowrap', 'important');
                 firstBlock.style.setProperty('flex-direction', 'row', 'important');
                 firstBlock.style.setProperty('align-items', 'center', 'important');
-                // Also fix each child column to prevent overflow-hiding
                 var cols = firstBlock.querySelectorAll('[data-testid="stColumn"]');
                 cols.forEach(function(col) {
                     col.style.setProperty('min-width', '0', 'important');
@@ -1469,7 +1468,7 @@ def draw_preferred_bar_disability(df_yeon, col_map):
             st.plotly_chart(apply_chart_style(fig), use_container_width=True)
 
 # 8. 연령대별 선호 프로그램 (가로 막대그래프)
-def draw_preferred_bar_age(df_yeon, col_map):
+def draw_preferred_bar_age(df_yeon, col_map, presentation_mode=False):
     project_col = col_map.get('세부사업', '세부사업')
     perf_col = col_map.get('실적', '실적')
     group_col = '_연령대'
@@ -1494,14 +1493,30 @@ def draw_preferred_bar_age(df_yeon, col_map):
     if group_col in df_yeon.columns and project_col in df_yeon.columns:
         with st.container(border=True):
             # 2. 제목 및 로컬 팝오버 필터
-            col_title, col_filter = st.columns([3, 1])
-            with col_title:
-                st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-top:5px;'>👥 연령대별 선호 프로그램 (비중 분석) <span style='font-size:12px; font-weight:normal; color:#888;'>&nbsp;&nbsp;*중식제공 사업 제외</span></div>", unsafe_allow_html=True)
-            
-            with col_filter:
+            if not presentation_mode:
+                col_title, col_filter = st.columns([3, 1])
+                with col_title:
+                    st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-top:5px;'>👥 연령대별 선호 프로그램 (비중 분석) <span style='font-size:12px; font-weight:normal; color:#888;'>&nbsp;&nbsp;*중식제공 사업 제외</span></div>", unsafe_allow_html=True)
+                
+                with col_filter:
+                    available_ages = [a for a in age_order if a in df_yeon[group_col].unique()]
+                    with st.popover("분석할 연령대 선택", use_container_width=True):
+                        actual_selection = checkbox_group("연령대 선택", available_ages, f"pref_age_{group_col}", is_sidebar=False)
+            else:
+                st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-top:5px; margin-bottom:15px;'>👥 연령대별 선호 프로그램 (비중 분석) <span style='font-size:12px; font-weight:normal; color:#888;'>&nbsp;&nbsp;*중식제공 사업 제외</span></div>", unsafe_allow_html=True)
                 available_ages = [a for a in age_order if a in df_yeon[group_col].unique()]
-                with st.popover("분석할 연령대 선택", use_container_width=True):
-                    actual_selection = checkbox_group("연령대 선택", available_ages, f"pref_age_{group_col}", is_sidebar=False)
+                
+                # 프리젠테이션이 시작될 때 현재 session state를 따르거나, 없으면 전체 선택 반환
+                actual_selection = []
+                all_key = f"pref_age_{group_col}_all"
+                if st.session_state.get(all_key, True):
+                    actual_selection = available_ages
+                else:
+                    for i, opt in enumerate(available_ages):
+                        if st.session_state.get(f"pref_age_{group_col}_{i}", False):
+                            actual_selection.append(opt)
+                if not actual_selection:
+                    actual_selection = available_ages
             
             if not actual_selection:
                 st.info("연령대를 최소 하나 이상 선택해 주세요.")
@@ -1986,6 +2001,9 @@ if st.session_state.get("presentation_mode", False):
     def _slide_cross():
         draw_cross_analysis(df_yeon, col_map, presentation_mode=True)
 
+    def _slide_pref_age():
+        draw_preferred_bar_age(df_yeon, col_map, presentation_mode=True)
+
     # 동적 슬라이드: 장애유형별 선호 프로그램 (도넛)
     DYNAMIC_PREF_SLIDES = []
     disability_col_pres = col_map.get('장애유형', '장애유형')
@@ -2077,19 +2095,16 @@ if st.session_state.get("presentation_mode", False):
             DYNAMIC_PREF_SLIDES.append(("장애유형별 선호 프로그램", make_slide_fn()))
 
     SLIDES = [
-        ("장애유형별 이용 현황 (연인원)",         _slide_disability_yeon),
+        ("장애유형별 이용 현황",              _slide_disability_yeon),
     ] + DYNAMIC_PREF_SLIDES + [
+        ("연령대별 현황 – 장애/미등록",       _slide_age_disabled),
+        ("연령대별 현황 – 비장애",            _slide_age_nondisabled),
+        ("연령대별 선호 프로그램",            _slide_pref_age),
         ("장애유형 X 연령대별 선호 프로그램",     _slide_cross),
-        ("연령대별 현황 – 장애/미등록 (연인원)",   _slide_age_disabled),
-        ("연령대별 현황 – 비장애 (연인원)",        _slide_age_nondisabled),
-        ("월별 이용자 추이",                       _slide_monthly),
-        ("요일별 이용 현황",                          _slide_daily),
-        ("익명 참여자 분석 (기타)",                 _slide_etc),
-        ("신규 이용자 현황",                        _slide_new_user),
-        ("장애유형별 이용 현황 (실인원)",            _slide_disability_sil),
-        ("연령대별 현황 – 장애/미등록 (실인원)",    _slide_age_disabled_sil),
-        ("연령대별 현황 – 비장애 (실인원)",         _slide_age_nondisabled_sil),
-        ("팀별 중복 실인원 현황",                   _slide_team_sil),
+        ("기타 이용자 참여비중 분석",           _slide_etc),
+        ("신규 이용자 현황",                    _slide_new_user),
+        ("월별 이용자 추이",                    _slide_monthly),
+        ("요일별 이용 현황",                    _slide_daily),
     ]
     TOTAL_SLIDES = len(SLIDES)
     idx = st.session_state.get("pres_slide_idx", 0) % TOTAL_SLIDES
@@ -2142,14 +2157,29 @@ if st.session_state.get("presentation_mode", False):
         (function() {{
             var doc = window.parent.document;
             var elem = doc.documentElement;
+            // 전체화면 시도 (데스크톱)
+            var _fullscreenOk = false;
             try {{
                 if (!doc.fullscreenElement) {{
-                    if (elem.requestFullscreen)        elem.requestFullscreen();
-                    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-                    else if (elem.mozRequestFullScreen)   elem.mozRequestFullScreen();
-                    else if (elem.msRequestFullscreen)    elem.msRequestFullscreen();
+                    var _req = elem.requestFullscreen
+                        || elem.webkitRequestFullscreen
+                        || elem.mozRequestFullScreen
+                        || elem.msRequestFullscreen;
+                    if (_req) {{
+                        _req.call(elem).then(function() {{
+                            _fullscreenOk = true;
+                        }}).catch(function() {{
+                            // 태블릿 fallback: 스크롤 최상단 + 스크롤바 숨김
+                            window.parent.scrollTo(0, 0);
+                            doc.body.style.overflow = 'hidden';
+                        }});
+                    }}
                 }}
-            }} catch(e) {{}}
+            }} catch(e) {{
+                // 동기식 실패(구형 브라우저) fallback
+                window.parent.scrollTo(0, 0);
+                doc.body.style.overflow = 'hidden';
+            }}
 
             var _timer = setTimeout(function() {{
                 var btns = doc.querySelectorAll('button');
