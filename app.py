@@ -1773,57 +1773,81 @@ def draw_new_user_analysis(df_data, col_map):
         return
         
     # 1) 접수상담 기록이 있는 이용자 식별
-    is_intake = df_data[project_col].astype(str).str.contains('접수상담', na=False)
-    intake_df = df_data[is_intake]
-    new_user_ids = intake_df[id_col].unique()
-    
-    if len(new_user_ids) == 0:
-        return
+    is_intake = df_data[project_col].astype(str).str.contains('접수상    def _slide_pref_age():
+        import plotly.express as px
+        project_col = col_map.get('세부사업', '세부사업')
+        perf_col = col_map.get('실적', '실적')
+        group_col = '_연령대'
+        age_order = ['10대미만', '10대', '20대', '30대', '40대', '50대', '60대', '70대', '80대이상']
         
-    # 2) 신규 이용자들의 전체 기록 추출
-    new_users_full_df = df_data[df_data[id_col].isin(new_user_ids)]
-    
-    # 3) 월별 신규 이용자 추이
-    new_users_monthly = intake_df.drop_duplicates(subset=[id_col, month_col]).groupby(month_col).size().reset_index(name='신규 이용자수').sort_values(month_col)
-    
-    # 4) 타 프로그램 이용 건수 Top 10
-    other_programs_df = new_users_full_df[~new_users_full_df[project_col].astype(str).str.contains('접수상담', na=False)]
-    if perf_col in other_programs_df.columns:
-        other_programs_count = other_programs_df.groupby(project_col)[perf_col].sum().reset_index(name='이용건수')
-    else:
-        other_programs_count = other_programs_df.groupby(project_col).size().reset_index(name='이용건수')
-        
-    top10_others = other_programs_count.sort_values('이용건수', ascending=False).head(10).sort_values('이용건수', ascending=True)
-    
-    with st.container(border=True):
-        st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:15px;'>🌱 신규 이용자 현황 (접수상담 이력자 기준: 총 {len(new_user_ids):,.0f}명)</div>", unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#555; margin-bottom:5px;'>📅 월별 신규 이용자 추이</div>", unsafe_allow_html=True)
-            if not new_users_monthly.empty:
-                fig1 = px.line(new_users_monthly, x=month_col, y='신규 이용자수', markers=True, text='신규 이용자수')
-                fig1.update_traces(line_color=BRAND_BLUE, marker=dict(size=10), textposition='top center', texttemplate='<b>%{text:,.0f}명</b>')
-                fig1.update_xaxes(dtick=1, labelalias={i: f"{i}월" for i in range(1, 13)}, title="")
-                fig1.update_yaxes(title="")
-                fig1 = apply_chart_style(fig1)
-                fig1.update_layout(height=400, margin=dict(t=10, b=20, l=20, r=20))
-                st.plotly_chart(fig1, use_container_width=True)
+        if group_col in df_yeon.columns and project_col in df_yeon.columns:
+            df_filtered = df_yeon[df_yeon[group_col].isin(age_order)].copy()
+            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식', na=False)]
+            
+            if not df_filtered.empty:
+                # 너무 많은 사업(난잡함) 방지를 위해 전체 실적 기준 Top 12 사업만 필터링
+                top_projects = df_filtered.groupby(project_col)[perf_col].sum().nlargest(12).index
+                df_filtered = df_filtered[df_filtered[project_col].isin(top_projects)]
+                
+                stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
+                # 각 연령대별 Top 3
+                top_stats = stats.sort_values([group_col, perf_col], ascending=[True, False]).groupby(group_col).head(3).copy()
+                
+                pivot_df = top_stats.pivot(index=project_col, columns=group_col, values=perf_col).fillna(0)
+                existing_cols = [col for col in age_order if col in pivot_df.columns]
+                pivot_df = pivot_df[existing_cols]
+                
+                pivot_pct = pivot_df.transpose().apply(lambda x: x / x.sum() * 100 if x.sum() != 0 else x, axis=1).transpose()
+                
+                pivot_df["_Total"] = pivot_df.sum(axis=1)
+                pivot_df = pivot_df.sort_values("_Total", ascending=True)
+                pivot_df = pivot_df.drop(columns=["_Total"])
+                pivot_pct = pivot_pct.loc[pivot_df.index]
+                
+                text_matrix = []
+                for i, row in pivot_df.iterrows():
+                    row_text = []
+                    for col in pivot_df.columns:
+                        val = pivot_df.loc[i, col]
+                        pct = pivot_pct.loc[i, col]
+                        if val > 0:
+                            # 캡처본 포맷: 100명 (50.0%) - 줄바꿈 없음
+                            row_text.append(f"<b>{val:,.0f}명 ({pct:.1f}%)</b>")
+                        else:
+                            row_text.append("")
+                    text_matrix.append(row_text)
+                
+                # 커스텀 베이지-다크레드 색상
+                custom_colorscale = [
+                    [0.0, '#FFF3E0'],
+                    [1.0, '#B81D22']
+                ]
+
+                with st.container(border=True):                    
+                    fig = px.imshow(pivot_pct,
+                                    labels=dict(x="연령대", y="프로그램명", color="선호 비중(%)"),
+                                    x=pivot_df.columns,
+                                    y=pivot_df.index,
+                                    text_auto=False,
+                                    aspect="auto",
+                                    color_continuous_scale=custom_colorscale)
+                    
+                    fig.update_traces(
+                        text=text_matrix,
+                        texttemplate="%{text}",
+                        hovertemplate="<b>%{y}</b><br>연령대: %{x}<br>비중: %{color:.1f}%<extra></extra>"
+                    )
+                    
+                    fig.update_layout(
+                        xaxis_title="연령대", 
+                        yaxis_title="프로그램명", 
+                        height=550,
+                        margin=dict(l=50, r=50, t=30, b=50),
+                        coloraxis_showscale=False # 캡처본에 범례(컬러바)가 없었음
+                    )
+                    st.plotly_chart(apply_chart_style(fig), use_container_width=True)
             else:
-                st.info("월별 신규 이용자 데이터가 없습니다.")
-                
-        with col2:
-            st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#555; margin-bottom:5px;'>🎯 신규 이용자의 타 프로그램 이용 (Top 10)</div>", unsafe_allow_html=True)
-            if not top10_others.empty:
-                n = len(top10_others)
-                fig2 = px.bar(top10_others, x='이용건수', y=project_col, orientation='h', text='이용건수')
-                
-                # 하위 순위(파일관리 포함)은 텍스트를 바깥으로 위치
-                # top10_others는 오름차순(ascending=True) 상태이므로 맨 마지막(n-1)이 1위
-                text_pos = ['inside' if (n - i) <= 4 else 'outside' for i in range(n)]
-                
-                fig2.update_traces(marker_color=BRAND_RED, texttemplate='<b>%{text:,.0f}건</b>', textposition=text_pos)
-                fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, yaxis_title="", xaxis_title="")
+                st.info("데이터가 없습니다.")      fig2.update_layout(yaxis={'categoryorder': 'total ascending'}, yaxis_title="", xaxis_title="")
                 fig2 = apply_chart_style(fig2)
                 
                 # outside 텍스트가 화면 우측에서 잘리지 않도록 r 여백을 80으로 확보
@@ -2002,7 +2026,64 @@ if st.session_state.get("presentation_mode", False):
         draw_cross_analysis(df_yeon, col_map, presentation_mode=True)
 
     def _slide_pref_age():
-        draw_heatmap(df_yeon, col_map, '_연령대', '연령대별 선호 프로그램')
+        import plotly.express as px
+        project_col = col_map.get('세부사업', '세부사업')
+        perf_col = col_map.get('실적', '실적')
+        group_col = '_연령대'
+        age_order = ['10대미만', '10대', '20대', '30대', '40대', '50대', '60대', '70대', '80대 이상']
+        
+        if group_col in df_yeon.columns and project_col in df_yeon.columns:
+            df_filtered = df_yeon[df_yeon[group_col].isin(age_order)].copy()
+            df_filtered = df_filtered[~df_filtered[project_col].astype(str).str.contains('중식', na=False)]
+            
+            if not df_filtered.empty:
+                stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
+                top_stats = stats.sort_values([group_col, perf_col], ascending=[True, False]).groupby(group_col).head(3).copy()
+                
+                pivot_df = top_stats.pivot(index=project_col, columns=group_col, values=perf_col).fillna(0)
+                existing_cols = [col for col in age_order if col in pivot_df.columns]
+                pivot_df = pivot_df[existing_cols]
+                
+                pivot_pct = pivot_df.transpose().apply(lambda x: x / x.sum() * 100 if x.sum() != 0 else x, axis=1).transpose()
+                
+                pivot_df["_Total"] = pivot_df.sum(axis=1)
+                pivot_df = pivot_df.sort_values("_Total", ascending=True)
+                pivot_df = pivot_df.drop(columns=["_Total"])
+                pivot_pct = pivot_pct.loc[pivot_df.index]
+                
+                text_matrix = []
+                for i, row in pivot_df.iterrows():
+                    row_text = []
+                    for col in pivot_df.columns:
+                        val = pivot_df.loc[i, col]
+                        pct = pivot_pct.loc[i, col]
+                        if val > 0:
+                            row_text.append(f"<b>{val:,.0f}명<br>({pct:.1f}%)</b>")
+                        else:
+                            row_text.append("")
+                    text_matrix.append(row_text)
+                
+                with st.container(border=True):
+                    st.markdown(f"<div style='font-size:18px; font-weight:bold; color:{BRAND_GRAY}; margin-bottom:5px;'>🔥 연령대별 선호 프로그램 히트맵 (Top 3)</div>", unsafe_allow_html=True)
+                    
+                    fig = px.imshow(pivot_pct,
+                                    labels=dict(x="연령대", y="세부사업", color="선호 비중(%)"),
+                                    x=pivot_df.columns,
+                                    y=pivot_df.index,
+                                    text_auto=False,
+                                    aspect="auto",
+                                    color_continuous_scale="Reds")
+                    
+                    fig.update_traces(
+                        text=text_matrix,
+                        texttemplate="%{text}",
+                        hovertemplate="<b>%{y}</b><br>연령대: %{x}<br>비중: %{color:.1f}%<extra></extra>"
+                    )
+                    
+                    fig.update_layout(xaxis_title="연령대", yaxis_title="세부사업", height=500)
+                    st.plotly_chart(apply_chart_style(fig), use_container_width=True)
+            else:
+                st.info("데이터가 없습니다.")
 
     # 동적 슬라이드: 장애유형별 선호 프로그램 (도넛)
     DYNAMIC_PREF_SLIDES = []
