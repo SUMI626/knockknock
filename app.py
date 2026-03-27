@@ -1508,7 +1508,8 @@ def draw_preferred_bar_age(df_yeon, col_map, presentation_mode=False):
                 return
 
             stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
-            top_stats = stats.sort_values([group_col, perf_col], ascending=[True, False]).groupby(group_col).head(5).copy()
+            # 프리젠테이션과 완벽히 동일하게 Top 3로 변경
+            top_stats = stats.sort_values([group_col, perf_col], ascending=[True, False]).groupby(group_col).head(3).copy()
 
             if top_stats.empty:
                 st.warning("데이터가 없습니다.")
