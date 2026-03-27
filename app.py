@@ -474,18 +474,23 @@ def clean_and_map_data(df):
             if not nums: return '정보없음'
             
             year = None
+            # 1순위: 숫자 토큰 중에서 4자리 연도(19xx, 20xx) 찾기
             for n in nums:
                 if len(n) == 4 and (n.startswith('19') or n.startswith('20')):
                     year = int(n)
                     break
             
             if not year:
-                # try YYMMDD or YY.MM.DD
-                if len(nums[0]) == 6 or len(nums[0]) == 8:
-                    y = int(nums[0][:2])
+                n0 = nums[0]
+                # 8자리(YYYYMMDD): 앞 4자리가 19xx/20xx → 연도로 사용
+                if len(n0) == 8 and (n0.startswith('19') or n0.startswith('20')):
+                    year = int(n0[:4])
+                # 6자리(YYMMDD): 앞 2자리를 YY로 해석
+                elif len(n0) == 6:
+                    y = int(n0[:2])
                     year = 1900 + y if y > 25 else 2000 + y
-                elif len(nums[0]) == 2:
-                    y = int(nums[0])
+                elif len(n0) == 2:
+                    y = int(n0)
                     year = 1900 + y if y > 25 else 2000 + y
                     
             if not year: return '정보없음'
