@@ -1509,46 +1509,77 @@ def draw_preferred_bar_age(df_yeon, col_map, presentation_mode=False):
 
             stats = df_filtered.groupby([group_col, project_col])[perf_col].sum().reset_index()
             top_stats = stats.sort_values([group_col, perf_col], ascending=[True, False]).groupby(group_col).head(5).copy()
-            top_stats['rank'] = top_stats.groupby(group_col).cumcount()
 
             if top_stats.empty:
                 st.warning("데이터가 없습니다.")
                 return
 
-            group_sums = top_stats.groupby(group_col)[perf_col].transform('sum')
-            top_stats['비중'] = (top_stats[perf_col] / group_sums) * 100
+            pivot_df = top_stats.pivot(index=project_col, columns=group_col, values=perf_col).fillna(0)
+            existing_cols = [col for col in age_order if col in pivot_df.columns and col in actual_selection]
+            pivot_df = pivot_df[existing_cols]
             
-            # 슬라이드의 히트맵과 통일감 있는 코랄/레드 톤 팔레트 적용 (가시성 고려)
-            coral_palette = ['#A3151A', '#CF474A', '#F28A73', '#FFC2A0', '#FFE6D5']
-            top_stats['color_key'] = top_stats.apply(lambda row: f"{row[group_col]}_{row['rank']}", axis=1)
-            color_map = {}
-            for _, row in top_stats.iterrows():
-                color_map[row['color_key']] = coral_palette[min(row['rank'], len(coral_palette)-1)]
+            pivot_pct = pivot_df.transpose().apply(lambda x: x / x.sum() * 100 if x.sum() != 0 else x, axis=1).transpose()
+            
+            pivot_df["_Total"] = pivot_df.sum(axis=1)
+            pivot_df = pivot_df.sort_values("_Total", ascending=True)
+            pivot_df = pivot_df.drop(columns=["_Total"])
+            pivot_pct = pivot_pct.loc[pivot_df.index]
+            
+            # 색상 진한 상위 5개 셀 동적으로 찾기
+            all_pct_vals = []
+            for i in pivot_pct.index:
+                for col in pivot_pct.columns:
+                    pct = pivot_pct.loc[i, col]
+                    val = pivot_df.loc[i, col]
+                    if val > 0:
+                        all_pct_vals.append((pct, i, col))
+            all_pct_vals.sort(reverse=True)
+            top5_cells = {(r, c) for _, r, c in all_pct_vals[:5]}
 
-            fig = px.bar(top_stats, x='비중', y=group_col, color='color_key',
-                         orientation='h',
-                         color_discrete_map=color_map,
-                         custom_data=[perf_col, '비중', project_col, 'rank'],
-                         category_orders={group_col: [a for a in age_order if a in actual_selection]})
+            text_matrix = []
+            for i, row in pivot_df.iterrows():
+                row_text = []
+                for col in pivot_df.columns:
+                    val = pivot_df.loc[i, col]
+                    pct = pivot_pct.loc[i, col]
+                    if val > 0:
+                        if (i, col) in top5_cells:
+                            row_text.append(f"<span style='color: white;'><b>{val:,.0f}명 ({pct:.1f}%)</b></span>")
+                        else:
+                            row_text.append(f"<b>{val:,.0f}명 ({pct:.1f}%)</b>")
+                    else:
+                        row_text.append("")
+                text_matrix.append(row_text)
             
-            def update_trace_style(t):
-                if t.name.endswith('_0'):
-                    t.update(texttemplate='<b>%{customdata[2]} %{customdata[0]:,.0f}명 (%{customdata[1]:.1f}%)</b>', textfont_size=13, textposition='inside', insidetextanchor='middle')
-                else:
-                    t.update(texttemplate='<b>%{customdata[2]}<br>%{customdata[0]:,.0f}명 (%{customdata[1]:.1f}%)</b>', textfont_size=10, textposition='inside', insidetextanchor='middle')
+            custom_colorscale = [
+                [0.0,  '#FFFDE7'],   # 연한 노란색 (라이트 옐로우)
+                [0.2,  '#FFE082'],   # 노란색
+                [0.4,  '#FFAB4E'],   # 오렌지-옐로우
+                [0.65, '#FF6348'],   # 비비드 코랄
+                [1.0,  '#C0392B']    # 진한 레드-코랄
+            ]
+
+            import plotly.graph_objects as go
+            fig = go.Figure(data=go.Heatmap(
+                z=pivot_pct.values,
+                x=pivot_df.columns,
+                y=pivot_df.index,
+                colorscale=custom_colorscale,
+                showscale=False,
+                text=text_matrix,
+                texttemplate="%{text}",
+                textfont=dict(size=14, color="#4D4D4D"),
+                hovertemplate="<b>%{y}</b><br>연령대: %{x}<br>비중: %{z:.1f}%<extra></extra>"
+            ))
             
-            fig.for_each_trace(update_trace_style)
-            
+            fig = apply_chart_style(fig)
             fig.update_layout(
-                showlegend=False,
-                xaxis_title="프로그램별 참여 비중 (%)",
-                yaxis_title="연령대",
-                height=max(400, min(800, len(actual_selection) * 50 + 100)),
-                margin=dict(t=10, b=10, l=10, r=10),
-                barmode='stack'
+                xaxis_title="연령대", 
+                yaxis_title="프로그램명",
+                height=max(380, len(pivot_df)*50 + 130),
+                margin=dict(l=50, r=50, t=30, b=30)
             )
-            fig.update_xaxes(range=[0, 100])
-            st.plotly_chart(apply_chart_style(fig), use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
 # 9. 장애유형 X 연령대별 선호 프로그램 (가로 막대그래프)
 def draw_cross_analysis(df_yeon, col_map, presentation_mode=False):
@@ -2000,6 +2031,17 @@ if st.session_state.get("presentation_mode", False):
                 pivot_df = pivot_df.drop(columns=["_Total"])
                 pivot_pct = pivot_pct.loc[pivot_df.index]
                 
+                # 색상 진한 상위 5개 셀 동적으로 찾기
+                all_pct_vals = []
+                for i in pivot_pct.index:
+                    for col in pivot_pct.columns:
+                        pct = pivot_pct.loc[i, col]
+                        val = pivot_df.loc[i, col]
+                        if val > 0:
+                            all_pct_vals.append((pct, i, col))
+                all_pct_vals.sort(reverse=True)
+                top5_cells = {(r, c) for _, r, c in all_pct_vals[:5]}
+
                 text_matrix = []
                 for i, row in pivot_df.iterrows():
                     row_text = []
@@ -2007,24 +2049,22 @@ if st.session_state.get("presentation_mode", False):
                         val = pivot_df.loc[i, col]
                         pct = pivot_pct.loc[i, col]
                         if val > 0:
-                            # 캡처본 포맷: 100명 (50.0%) - 줄바꿈 없음
-                            is_dark_cell = (col in ['50대', '60대'] and i == '복지일자리(근무)') or \
-                                           (col in ['10대미만', '10대'] and i == '발달재활')
-                            if is_dark_cell:
+                            if (i, col) in top5_cells:
                                 row_text.append(f"<span style='color: white;'><b>{val:,.0f}명 ({pct:.1f}%)</b></span>")
                             else:
                                 row_text.append(f"<b>{val:,.0f}명 ({pct:.1f}%)</b>")
                         else:
                             row_text.append("")
                     text_matrix.append(row_text)
+
                 
                 # 커스텀 베이지-다크레드 색상 (다중 스탑을 통해 낮은 비중이 과도하게 붉어지는 현상 방지)
                 custom_colorscale = [
-                    [0.0, '#FFF0EC'],   # 아주 연한 코랄 (거의 흰색)
-                    [0.25, '#FFBDAD'],  # 연한 코랄 핑크
-                    [0.5, '#FF7F6B'],   # 중간 코랄
-                    [0.75, '#E84A3A'],  # 진한 코랄-레드
-                    [1.0, '#B81D22']    # 짙은 레드
+                    [0.0,  '#FFFDE7'],   # 연한 노란색 (라이트 옐로우)
+                    [0.2,  '#FFE082'],   # 노란색
+                    [0.4,  '#FFAB4E'],   # 오렌지-옐로우
+                    [0.65, '#FF6348'],   # 비비드 코랄
+                    [1.0,  '#C0392B']    # 진한 레드-코랄
                 ]
 
                 with st.container(border=True):                    
