@@ -465,18 +465,6 @@ def clean_and_map_data(df):
         except:
             return '정보없음'
 
-    # 연령대 컬럼이 직접 존재하는 경우 우선 사용하고, 없거나 값이 누락된 경우 생년월일/나이로 계산
-    if '연령대' in df.columns:
-        def normalize_age_group(x):
-            if pd.isna(x): return None
-            x_str = str(x).strip().replace(' ', '')
-            if x_str == '80세이상' or x_str == '80대이상': return '80대 이상'
-            if x_str == '정보없음': return None
-            return x_str
-        df['_연령대'] = df['연령대'].apply(normalize_age_group)
-    else:
-        df['_연령대'] = None
-
     if col_birth in df.columns:
         def get_age_group(x):
             if pd.isna(x): return '정보없음'
@@ -486,23 +474,18 @@ def clean_and_map_data(df):
             if not nums: return '정보없음'
             
             year = None
-            # 1순위: 숫자 토큰 중에서 4자리 연도(19xx, 20xx) 찾기
             for n in nums:
                 if len(n) == 4 and (n.startswith('19') or n.startswith('20')):
                     year = int(n)
                     break
             
             if not year:
-                n0 = nums[0]
-                # 8자리(YYYYMMDD): 앞 4자리가 19xx/20xx → 연도로 사용
-                if len(n0) == 8 and (n0.startswith('19') or n0.startswith('20')):
-                    year = int(n0[:4])
-                # 6자리(YYMMDD): 앞 2자리를 YY로 해석
-                elif len(n0) == 6:
-                    y = int(n0[:2])
+                # try YYMMDD or YY.MM.DD
+                if len(nums[0]) == 6 or len(nums[0]) == 8:
+                    y = int(nums[0][:2])
                     year = 1900 + y if y > 25 else 2000 + y
-                elif len(n0) == 2:
-                    y = int(n0)
+                elif len(nums[0]) == 2:
+                    y = int(nums[0])
                     year = 1900 + y if y > 25 else 2000 + y
                     
             if not year: return '정보없음'
@@ -510,16 +493,12 @@ def clean_and_map_data(df):
             age = 2025 - year
             return group_by_age_num(age)
             
-        mask = df['_연령대'].isna()
-        if mask.any():
-            df.loc[mask, '_연령대'] = df.loc[mask, col_birth].apply(get_age_group)
-            
-    if col_age in df.columns:
-        mask = df['_연령대'].isna() | (df['_연령대'] == '정보없음')
-        if mask.any():
-            df.loc[mask, '_연령대'] = df.loc[mask, col_age].apply(group_by_age_num)
-            
-    df['_연령대'] = df['_연령대'].fillna('정보없음')
+        df['_연령대'] = df[col_birth].apply(get_age_group)
+    elif col_age in df.columns:
+        df['_연령대'] = df[col_age].apply(group_by_age_num)
+    else:
+        df['_연령대'] = '정보없음'
+
 
     # 장애유형 데이터 정제 (불필요한 값 정리)
     if col_disability_type in df.columns:
