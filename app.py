@@ -2020,11 +2020,11 @@ if st.session_state.get("presentation_mode", False):
                 
                 # 커스텀 베이지-다크레드 색상 (다중 스탑을 통해 낮은 비중이 과도하게 붉어지는 현상 방지)
                 custom_colorscale = [
-                    [0.0, '#FFF5E6'],   # 완전 베이지 배경
-                    [0.2, '#FFE1CC'],   # 연한 살구색
-                    [0.5, '#F9A88F'],   # 코랄 핑크
-                    [0.7, '#E36568'],   # 부드러운 다홍색
-                    [1.0, '#B81D22']    # 짙은 정통 레드
+                    [0.0, '#FFF0EC'],   # 아주 연한 코랄 (거의 흰색)
+                    [0.25, '#FFBDAD'],  # 연한 코랄 핑크
+                    [0.5, '#FF7F6B'],   # 중간 코랄
+                    [0.75, '#E84A3A'],  # 진한 코랄-레드
+                    [1.0, '#B81D22']    # 짙은 레드
                 ]
 
                 with st.container(border=True):                    
@@ -2045,7 +2045,7 @@ if st.session_state.get("presentation_mode", False):
                     fig.update_layout(
                         xaxis_title="연령대", 
                         yaxis_title="프로그램명",
-                        height=max(400, len(pivot_df)*60 + 150),  # 동적 높이 설정하여 항목이 적을 때 두꺼워지는 현상 방지
+                        height=max(380, len(pivot_df)*50 + 130),  # 동적 높이 설정 (행 높이 약간 축소)
                         margin=dict(l=50, r=50, t=30, b=30)
                     )
                     st.plotly_chart(fig, use_container_width=True)
